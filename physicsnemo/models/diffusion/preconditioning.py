@@ -1045,10 +1045,11 @@ class EDMPrecondSR(EDMPrecondSuperResolution):
 
         if scale_cond_input:
             warnings.warn(
-                "scale_cond_input=True does not properly scale the conditional input. "
-                "(see https://github.com/NVIDIA/modulus/issues/229). "
-                "This setup will be deprecated. "
-                "Please set scale_cond_input=False.",
+                "The `scale_cond_input=True` option does not properly scale the conditional input "
+                "and is deprecated. It is highly recommended to set `scale_cond_input=False`. "
+                "However, for loading a checkpoint previously trained with `scale_cond_input=True`, "
+                "this flag must be set to `True` to ensure compatibility. "
+                "For more details, see https://github.com/NVIDIA/modulus/issues/229.",
                 DeprecationWarning,
             )
             self.scaling_fn = self._legacy_scaling_fn
