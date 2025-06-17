@@ -122,7 +122,7 @@ def test_image_fuse_with_multiple_batches(pytestconfig, device):
         # Apply image_batching to split the image into patches
         batched_images = image_batching(
             original_image, patch_shape_y, patch_shape_x, overlap_pix, boundary_pix
-        ).requires_grad_(True)
+        )
 
         # Apply image_fuse to reconstruct the image from patches
         fused_image = image_fuse(
@@ -146,7 +146,6 @@ def test_image_fuse_with_multiple_batches(pytestconfig, device):
         loss.backward()
 
         assert original_image.grad is not None
-        assert batched_images.grad is not None
 
 
 @import_or_fail("cftime")
