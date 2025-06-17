@@ -37,7 +37,7 @@ def test_image_fuse_basic(pytestconfig, device):
             .view(1, 1, img_shape_y, img_shape_x)
             .to(device)
             .float()
-        )
+        ).requires_grad_(True)
         fused_image = image_fuse(
             input_tensor,
             img_shape_y,
@@ -52,6 +52,11 @@ def test_image_fuse_basic(pytestconfig, device):
             fused_image, expected_output, atol=1e-5
         ), "Output does not match expected output."
 
+        # Make sure that image_fuse is differentiable
+        loss = fused_image.sum()
+        loss.backward()
+        assert input_tensor.grad is not None
+
 
 @import_or_fail("cftime")
 @pytest.mark.parametrize("device", ["cuda:0", "cpu"])
@@ -62,7 +67,7 @@ def test_image_fuse_with_boundary(pytestconfig, device):
     overlap_pix = 0
     boundary_pix = 1
 
-    input_tensor = torch.randn(1, 1, 8, 6).to(device).float()
+    input_tensor = (torch.randn(1, 1, 8, 6).to(device).float()).requires_grad_(True)
     fused_image = image_fuse(
         input_tensor,
         img_shape_y=6,
@@ -78,6 +83,11 @@ def test_image_fuse_with_boundary(pytestconfig, device):
     assert torch.allclose(
         fused_image, expected_output, atol=1e-5
     ), "Output with boundary does not match expected output."
+
+    # Make sure that image_fuse is differentiable
+    loss = fused_image.sum()
+    loss.backward()
+    assert input_tensor.grad is not None
 
 
 @import_or_fail("cftime")
@@ -107,12 +117,12 @@ def test_image_fuse_with_multiple_batches(pytestconfig, device):
         # Create original test image
         original_image = (
             torch.rand(batch_size, 3, img_shape_y, img_shape_x).to(device).float()
-        )
+        ).requires_grad_(True)
 
         # Apply image_batching to split the image into patches
         batched_images = image_batching(
             original_image, patch_shape_y, patch_shape_x, overlap_pix, boundary_pix
-        )
+        ).requires_grad_(True)
 
         # Apply image_fuse to reconstruct the image from patches
         fused_image = image_fuse(
@@ -131,6 +141,13 @@ def test_image_fuse_with_multiple_batches(pytestconfig, device):
             f"overlap={overlap_pix}, boundary={boundary_pix}"
         )
 
+        # Make sure that image_batching is differentiable
+        loss = fused_image.sum()
+        loss.backward()
+
+        assert original_image.grad is not None
+        assert batched_images.grad is not None
+
 
 @import_or_fail("cftime")
 @pytest.mark.parametrize("device", ["cuda:0", "cpu"])
@@ -143,7 +160,9 @@ def test_image_batching_basic(pytestconfig, device):
     overlap_pix = 0
     boundary_pix = 0
 
-    input_tensor = torch.arange(1, 17).view(1, 1, 4, 4).to(device).float()
+    input_tensor = (
+        torch.arange(1, 17).view(1, 1, 4, 4).to(device).float()
+    ).requires_grad_(True)
     batched_images = image_batching(
         input_tensor,
         patch_shape_y,
@@ -157,6 +176,11 @@ def test_image_batching_basic(pytestconfig, device):
         batched_images, expected_output, atol=1e-5
     ), "Batched images do not match expected output."
 
+    # Make sure that image_batching is differentiable
+    loss = batched_images.sum()
+    loss.backward()
+    assert input_tensor.grad is not None
+
 
 @import_or_fail("cftime")
 @pytest.mark.parametrize("device", ["cuda:0", "cpu"])
@@ -169,7 +193,7 @@ def test_image_batching_with_boundary(pytestconfig, device):
     overlap_pix = 0
     boundary_pix = 1
 
-    input_tensor = torch.rand(1, 1, 6, 4).to(device).float()
+    input_tensor = (torch.rand(1, 1, 6, 4).to(device).float()).requires_grad_(True)
     batched_images = image_batching(
         input_tensor,
         patch_shape_y,
@@ -189,10 +213,15 @@ def test_image_batching_with_boundary(pytestconfig, device):
         batched_images, expected_output, atol=1e-5
     ), "Batched images with boundary do not match expected output."
 
+    # Make sure that image_batching is differentiable
+    loss = batched_images.sum()
+    loss.backward()
+    assert input_tensor.grad is not None
+
 
 @import_or_fail("cftime")
 @pytest.mark.parametrize("device", ["cuda:0", "cpu"])
-def test_image_batching_with_input_interp(pytestconfig, device):
+def test_image_batching_with_input_interp(device, pytestconfig):
     from physicsnemo.utils.patching import image_batching
 
     # Test with input_interp tensor
@@ -208,13 +237,13 @@ def test_image_batching_with_input_interp(pytestconfig, device):
             .view(1, 1, img_shape_y, img_shape_x)
             .to(device)
             .float()
-        )
+        ).requires_grad_(True)
         input_interp = (
             torch.arange(-patch_shape_y * patch_shape_x, 0)
             .view(1, 1, patch_shape_y, patch_shape_x)
             .to(device)
             .float()
-        )
+        ).requires_grad_(True)
         batched_images = image_batching(
             input_tensor,
             patch_shape_y,
@@ -247,3 +276,9 @@ def test_image_batching_with_input_interp(pytestconfig, device):
         assert torch.allclose(
             batched_images, expected_output, atol=1e-5
         ), "Batched images with input_interp do not match expected output."
+
+        # Make sure that image_batching is differentiable
+        loss = batched_images.sum()
+        loss.backward()
+        assert input_interp.grad is not None
+        assert input_tensor.grad is not None
