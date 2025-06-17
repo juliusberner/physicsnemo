@@ -157,7 +157,6 @@ def main(cfg: DictConfig) -> None:
     try:
         cur_nimg = load_checkpoint(
             path=checkpoint_dir,
-            device=dist.device,
         )
     except Exception:
         cur_nimg = 0
