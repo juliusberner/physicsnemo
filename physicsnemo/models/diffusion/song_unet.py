@@ -27,10 +27,10 @@ from torch.utils.checkpoint import checkpoint
 from physicsnemo.models.diffusion import (
     Conv2d,
     FourierEmbedding,
-    GroupNorm,
     Linear,
     PositionalEmbedding,
     UNetBlock,
+    get_group_norm,
 )
 from physicsnemo.models.meta import ModelMetaData
 from physicsnemo.models.module import Module
@@ -479,7 +479,7 @@ class SongUNet(Module):
                         resample_filter=resample_filter,
                         amp_mode=amp_mode,
                     )
-                self.dec[f"{res}x{res}_aux_norm"] = GroupNorm(
+                self.dec[f"{res}x{res}_aux_norm"] = get_group_norm(
                     num_channels=cout,
                     eps=1e-6,
                     use_apex_gn=use_apex_gn,
@@ -825,7 +825,9 @@ class SongUNetPosEmbd(SongUNet):
         if self.gridtype == "learnable":
             self.pos_embd = self._get_positional_embedding()
         else:
-            self.register_buffer("pos_embd", self._get_positional_embedding().float())
+            self.register_buffer(
+                "pos_embd", self._get_positional_embedding().float(), persistent=False
+            )
         self.lead_time_mode = lead_time_mode
         if self.lead_time_mode:
             self.lead_time_channels = lead_time_channels

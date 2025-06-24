@@ -290,6 +290,64 @@ class Conv2d(torch.nn.Module):
         return x
 
 
+def get_group_norm(
+    num_channels: int,
+    num_groups: int = 32,
+    min_channels_per_group: int = 4,
+    eps: float = 1e-5,
+    use_apex_gn: bool = False,
+    act: str = None,
+    amp_mode: bool = False,
+):
+    """
+    Utility function to get the GroupNorm layer, either from apex or from torch.
+
+    Parameters
+    ----------
+    num_channels : int
+        Number of channels in the input tensor.
+    num_groups : int, optional
+        Desired number of groups to divide the input channels, by default 32.
+        This might be adjusted based on the `min_channels_per_group`.
+    eps : float, optional
+        A small number added to the variance to prevent division by zero, by default
+        1e-5.
+    use_apex_gn : bool, optional
+        A boolean flag indicating whether we want to use Apex GroupNorm for NHWC layout.
+        Need to set this as False on cpu. Defaults to False.
+    act : str, optional
+        The activation function to use when fusing activation with GroupNorm. Defaults to None.
+    amp_mode : bool, optional
+        A boolean flag indicating whether mixed-precision (AMP) training is enabled. Defaults to False.
+    Notes
+    -----
+    If `num_channels` is not divisible by `num_groups`, the actual number of groups
+    might be adjusted to satisfy the `min_channels_per_group` condition.
+    """
+
+    num_groups = min(num_groups, num_channels // min_channels_per_group)
+    if use_apex_gn and not _is_apex_available:
+        raise ValueError("'apex' is not installed, set `use_apex_gn=False`")
+
+    act = act.lower() if act else act
+    if use_apex_gn:
+        return ApexGroupNorm(
+            num_groups=num_groups,
+            num_channels=num_channels,
+            eps=eps,
+            affine=True,
+            act=act,
+        )
+    else:
+        return GroupNorm(
+            num_groups=num_groups,
+            num_channels=num_channels,
+            eps=eps,
+            act=act,
+            amp_mode=amp_mode,
+        )
+
+
 class GroupNorm(torch.nn.Module):
     """
     A custom Group Normalization layer implementation.
@@ -301,22 +359,13 @@ class GroupNorm(torch.nn.Module):
 
     Parameters
     ----------
+    num_groups : int
+        Desired number of groups to divide the input channels.
     num_channels : int
         Number of channels in the input tensor.
-    num_groups : int, optional
-        Desired number of groups to divide the input channels, by default 32.
-        This might be adjusted based on the `min_channels_per_group`.
-    min_channels_per_group : int, optional
-        Minimum channels required per group. This ensures that no group has fewer
-        channels than this number. By default 4.
     eps : float, optional
         A small number added to the variance to prevent division by zero, by default
         1e-5.
-    use_apex_gn : bool, optional
-        A boolean flag indicating whether we want to use Apex GroupNorm for NHWC layout.
-        Need to set this as False on cpu. Defaults to False.
-    fused_act : bool, optional
-        Whether to fuse the activation function with GroupNorm. Defaults to False.
     act : str, optional
         The activation function to use when fusing activation with GroupNorm. Defaults to None.
     amp_mode : bool, optional
@@ -329,61 +378,32 @@ class GroupNorm(torch.nn.Module):
 
     def __init__(
         self,
+        num_groups: int,
         num_channels: int,
-        num_groups: int = 32,
-        min_channels_per_group: int = 4,
         eps: float = 1e-5,
-        use_apex_gn: bool = False,
-        fused_act: bool = False,
         act: str = None,
         amp_mode: bool = False,
     ):
-        if fused_act and act is None:
-            raise ValueError("'act' must be specified when 'fused_act' is set to True.")
-
         super().__init__()
-        self.num_groups = min(num_groups, num_channels // min_channels_per_group)
+        self.num_groups = num_groups
         self.eps = eps
         self.weight = torch.nn.Parameter(torch.ones(num_channels))
         self.bias = torch.nn.Parameter(torch.zeros(num_channels))
-        if use_apex_gn and not _is_apex_available:
-            raise ValueError("'apex' is not installed, set `use_apex_gn=False`")
-        self.use_apex_gn = use_apex_gn
-        self.fused_act = fused_act
         self.act = act.lower() if act else act
         self.act_fn = None
-        self.amp_mode = amp_mode
-        if self.use_apex_gn:
-            if self.act:
-                self.gn = ApexGroupNorm(
-                    num_groups=self.num_groups,
-                    num_channels=num_channels,
-                    eps=self.eps,
-                    affine=True,
-                    act=self.act,
-                )
-
-            else:
-                self.gn = ApexGroupNorm(
-                    num_groups=self.num_groups,
-                    num_channels=num_channels,
-                    eps=self.eps,
-                    affine=True,
-                )
-        if self.fused_act:
+        if self.act is not None:
             self.act_fn = self.get_activation_function()
+        self.amp_mode = amp_mode
 
     def forward(self, x):
         weight, bias = self.weight, self.bias
         if not self.amp_mode:
-            if not self.use_apex_gn:
-                if weight.dtype != x.dtype:
-                    weight = self.weight.to(x.dtype)
-                if bias.dtype != x.dtype:
-                    bias = self.bias.to(x.dtype)
-        if self.use_apex_gn:
-            x = self.gn(x)
-        elif self.training:
+            if weight.dtype != x.dtype:
+                weight = self.weight.to(x.dtype)
+            if bias.dtype != x.dtype:
+                bias = self.bias.to(x.dtype)
+
+        if self.training:
             # Use default torch implementation of GroupNorm for training
             # This does not support channels last memory format
             x = torch.nn.functional.group_norm(
@@ -393,8 +413,6 @@ class GroupNorm(torch.nn.Module):
                 bias=bias,
                 eps=self.eps,
             )
-            if self.fused_act:
-                x = self.act_fn(x)
         else:
             # Use custom GroupNorm implementation that supports channels last
             # memory layout for inference
@@ -411,8 +429,8 @@ class GroupNorm(torch.nn.Module):
             bias = rearrange(bias, "c -> 1 c 1 1")
             x = x * weight + bias
 
-            if self.fused_act:
-                x = self.act_fn(x)
+        if self.act_fn is not None:
+            x = self.act_fn(x)
         return x
 
     def get_activation_function(self):
@@ -574,11 +592,10 @@ class UNetBlock(torch.nn.Module):
         self.adaptive_scale = adaptive_scale
         self.profile_mode = profile_mode
         self.amp_mode = amp_mode
-        self.norm0 = GroupNorm(
+        self.norm0 = get_group_norm(
             num_channels=in_channels,
             eps=eps,
             use_apex_gn=use_apex_gn,
-            fused_act=True,
             act=act,
             amp_mode=amp_mode,
         )
@@ -600,19 +617,18 @@ class UNetBlock(torch.nn.Module):
             **init,
         )
         if self.adaptive_scale:
-            self.norm1 = GroupNorm(
+            self.norm1 = get_group_norm(
                 num_channels=out_channels,
                 eps=eps,
                 use_apex_gn=use_apex_gn,
                 amp_mode=amp_mode,
             )
         else:
-            self.norm1 = GroupNorm(
+            self.norm1 = get_group_norm(
                 num_channels=out_channels,
                 eps=eps,
                 use_apex_gn=use_apex_gn,
                 act=act,
-                fused_act=True,
                 amp_mode=amp_mode,
             )
         self.conv1 = Conv2d(
@@ -641,7 +657,7 @@ class UNetBlock(torch.nn.Module):
             )
 
         if self.num_heads:
-            self.norm2 = GroupNorm(
+            self.norm2 = get_group_norm(
                 num_channels=out_channels,
                 eps=eps,
                 use_apex_gn=use_apex_gn,
