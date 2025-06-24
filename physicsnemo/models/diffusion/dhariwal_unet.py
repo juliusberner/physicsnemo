@@ -23,10 +23,10 @@ from torch.nn.functional import silu
 
 from physicsnemo.models.diffusion import (
     Conv2d,
-    GroupNorm,
     Linear,
     PositionalEmbedding,
     UNetBlock,
+    get_group_norm,
 )
 from physicsnemo.models.meta import ModelMetaData
 from physicsnemo.models.module import Module
@@ -264,7 +264,7 @@ class DhariwalUNet(Module):
                     attention=(res in attn_resolutions),
                     **block_kwargs,
                 )
-        self.out_norm = GroupNorm(num_channels=cout)
+        self.out_norm = get_group_norm(num_channels=cout)
         self.out_conv = Conv2d(
             in_channels=cout, out_channels=out_channels, kernel=3, **init_zero
         )
