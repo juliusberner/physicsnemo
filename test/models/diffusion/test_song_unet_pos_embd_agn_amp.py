@@ -28,14 +28,58 @@ import common
 from physicsnemo.models.diffusion import SongUNetPosEmbd as UNet
 
 
+def setup_model_learnable_embd():
+    # Smaller architecture variant with learnable positional embeddings
+    # (more similar to CorrDiff example)
+    N_pos = 4
+    model = UNet(
+        img_resolution=128,
+        in_channels=2 + N_pos,
+        out_channels=2,
+        model_channels=32,
+        channel_mult_emb=2,
+        gridtype="learnable",
+        N_grid_channels=N_pos,
+        use_apex_gn=True,
+        amp_mode=True,
+    )
+    return model
+
+
+# Test forward pass with AMP, Apex GN, and compile
+@pytest.mark.parametrize("device", ["cuda:0"])
+def test_song_unet_forward(device):
+    torch.manual_seed(0)
+    H, W = 32, 64
+    model = (
+        setup_model_learnable_embd().to(device).to(memory_format=torch.channels_last)
+    )
+    input_image = torch.ones([1, 2, H, W]).to(device)
+    noise_labels = torch.randn([1]).to(device)
+    class_labels = torch.randint(0, 1, (1, 1)).to(device)
+    idx_x = torch.arange(45, 45 + H)
+    idx_y = torch.arange(12, 12 + W)
+    mesh_x, mesh_y = torch.meshgrid(idx_x, idx_y)
+    global_index = torch.stack((mesh_x, mesh_y), dim=0)[None].to(device)
+
+    # Compile model
+    model = common.torch_compile_model(model)
+
+    with torch.autocast("cuda", dtype=torch.bfloat16, enabled=True):
+        output_image = model(input_image, noise_labels, class_labels, global_index)
+    assert output_image.shape == (1, 2, H, W)
+
+    # TODO: add non-regression test
+    return
+
+
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_song_unet_global_indexing(device):
     torch.manual_seed(0)
     N_pos = 2
-    batch_shape_x = 32
-    batch_shape_y = 64
-    # Construct the DDM++ UNet model
+    H, W = 32, 64
 
+    # Construct the DDM++ UNet model
     model = (
         UNet(
             img_resolution=128,
@@ -49,19 +93,39 @@ def test_song_unet_global_indexing(device):
         .to(device)
         .to(memory_format=torch.channels_last)
     )
-    input_image = torch.ones([1, 2, batch_shape_x, batch_shape_y]).to(device)
-    noise_labels = noise_labels = torch.randn([1]).to(device)
+    input_image = torch.ones([1, 2, H, W]).to(device)
+    noise_labels = torch.randn([1]).to(device)
     class_labels = torch.randint(0, 1, (1, 1)).to(device)
-    idx_x = torch.arange(45, 45 + batch_shape_x)
-    idx_y = torch.arange(12, 12 + batch_shape_y)
+    idx_x = torch.arange(45, 45 + H)
+    idx_y = torch.arange(12, 12 + W)
     mesh_x, mesh_y = torch.meshgrid(idx_x, idx_y)
     global_index = torch.stack((mesh_x, mesh_y), dim=0)[None].to(device)
 
     with torch.autocast("cuda", dtype=torch.bfloat16, enabled=True):
         output_image = model(input_image, noise_labels, class_labels, global_index)
     pos_embed = model.positional_embedding_indexing(input_image, global_index)
-    assert output_image.shape == (1, 2, batch_shape_x, batch_shape_y)
+    assert output_image.shape == (1, 2, H, W)
     assert torch.equal(pos_embed, global_index)
+
+    # Smaller architecture variant with learnable positional embeddings
+    # (more similar to CorrDiff example)
+    model = (
+        setup_model_learnable_embd().to(device).to(memory_format=torch.channels_last)
+    )
+    input_image = torch.ones([1, 2, H, W]).to(device)
+    noise_labels = torch.randn([1]).to(device)
+    class_labels = torch.randint(0, 1, (1, 1)).to(device)
+    idx_x = torch.arange(45, 45 + H)
+    idx_y = torch.arange(12, 12 + W)
+    mesh_x, mesh_y = torch.meshgrid(idx_x, idx_y)
+    global_index = torch.stack((mesh_x, mesh_y), dim=0)[None].to(device)
+
+    with torch.autocast("cuda", dtype=torch.bfloat16, enabled=True):
+        output_image = model(input_image, noise_labels, class_labels, global_index)
+    pos_embed = model.positional_embedding_indexing(input_image, global_index)
+    assert output_image.shape == (1, 2, H, W)
+    assert pos_embed.shape == (1, N_pos, H, W)
+    assert torch.equal(pos_embed, model.pos_embd[:, 45 : 45 + H, 12 : 12 + W])
 
 
 @pytest.mark.parametrize("device", ["cuda:0"])
@@ -138,12 +202,6 @@ def test_song_unet_position_embedding(device):
         .to(device)
         .to(memory_format=torch.channels_last)
     )
-    noise_labels = torch.randn([1]).to(device)
-    class_labels = torch.randint(0, 1, (1, 1)).to(device)
-    input_image = torch.ones([1, 2, 16, 16]).to(device)
-    with torch.autocast("cuda", dtype=torch.bfloat16, enabled=True):
-        output_image = model(input_image, noise_labels, class_labels)
-    assert output_image.shape == (1, out_channels, img_resolution, img_resolution)
     assert model.pos_embd.shape == (100, img_resolution, img_resolution)
 
     model = (
@@ -159,6 +217,12 @@ def test_song_unet_position_embedding(device):
         .to(memory_format=torch.channels_last)
     )
     assert model.pos_embd.shape == (40, img_resolution, img_resolution)
+
+    # Test with learnable positional embeddings
+    model = (
+        setup_model_learnable_embd().to(device).to(memory_format=torch.channels_last)
+    )
+    assert model.pos_embd.shape == (4, img_resolution, img_resolution)
 
 
 def test_fails_if_grid_is_invalid():
