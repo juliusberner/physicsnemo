@@ -325,7 +325,12 @@ def get_group_norm(
     might be adjusted to satisfy the `min_channels_per_group` condition.
     """
 
-    num_groups = min(num_groups, num_channels // min_channels_per_group)
+    num_groups = min(num_groups, (num_channels + min_channels_per_group - 1) // min_channels_per_group)
+    if num_channels % num_groups != 0:
+        raise ValueError(
+            "num_channels must be divisible by num_groups or min_channels_per_group"
+        )
+
     if use_apex_gn and not _is_apex_available:
         raise ValueError("'apex' is not installed, set `use_apex_gn=False`")
 

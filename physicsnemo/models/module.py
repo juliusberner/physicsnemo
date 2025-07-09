@@ -445,7 +445,7 @@ class Module(torch.nn.Module):
 
     @classmethod
     def from_checkpoint(
-        cls, file_name: str, override_args: Optional[Dict[str, Any]] = None
+        cls, file_name: str, override_args: Optional[Dict[str, Any]] = None, strict: bool = True,
     ) -> "Module":
         """Simple utility for constructing a model from a checkpoint
 
@@ -471,6 +471,8 @@ class Module(torch.nn.Module):
             class attribute. Attempting to override any other argument will raise
             a ``ValueError``. This API should be used with caution and only if
             you fully understand the implications of the override.
+        strict : bool, optional
+            Whether to strictly enforce that the keys in state_dict match, by default True
 
         Returns
         -------
@@ -537,7 +539,7 @@ class Module(torch.nn.Module):
                 local_path.joinpath("model.pt"), map_location=model.device
             )
 
-            load_state_dict_with_logging(model, model_dict, strict=False)
+            load_state_dict_with_logging(model, model_dict, strict=strict)
         return model
 
     @staticmethod
