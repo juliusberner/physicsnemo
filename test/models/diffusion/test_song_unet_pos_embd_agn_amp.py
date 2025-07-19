@@ -103,6 +103,7 @@ def test_song_unet_global_indexing(device):
 
     with torch.autocast("cuda", dtype=torch.bfloat16, enabled=True):
         output_image = model(input_image, noise_labels, class_labels, global_index)
+
     pos_embed = model.positional_embedding_indexing(input_image, global_index)
     assert output_image.shape == (1, 2, H, W)
     assert torch.equal(pos_embed, global_index)
