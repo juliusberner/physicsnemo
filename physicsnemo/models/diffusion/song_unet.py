@@ -1121,12 +1121,12 @@ class SongUNetPosEmbd(SongUNet):
         ...     return patching.apply(emb[None].expand(batch_size, -1, -1, -1))
         >>>
         """
-        embeddings = self.pos_embd
-        if x.dtype != embeddings.dtype:
-            embeddings = embeddings.to(x.dtype)
+        pos_embd = self.pos_embd
+        if x.dtype != pos_embd.dtype:
+            pos_embd = pos_embd.to(x.dtype)
         if lead_time_label is not None:
             # all patches share same lead_time_label
-            embeddings = torch.cat([embeddings, self.lt_embd[lead_time_label[0].int()]])
+            embeddings = torch.cat([pos_embd, self.lt_embd[lead_time_label[0].int()]])
         return embedding_selector(embeddings)  # (B, N_pe, H, W)
 
     def _get_positional_embedding(self):
