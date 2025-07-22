@@ -182,8 +182,8 @@ class Module(torch.nn.Module):
     ) -> None:
         """Safely override ``__init__`` arguments stored in a checkpoint.
 
-        This updates *args* *in-place* with the values provided in
-        *override_args*. Only keys defined in ``cls._overridable_args`` are
+        This updates ``args`` *in-place* with the values provided in
+        ``override_args``. Only keys defined in ``cls._overridable_args`` are
         allowed to be modified. Attempting to override any other key will raise
         a ``ValueError``.
 
@@ -201,10 +201,9 @@ class Module(torch.nn.Module):
                 raise ValueError(
                     f"Argument '{key}' cannot be overridden for " f"{cls.__name__}."
                 )
+            # In this case we are not overriding, but we are adding a new arg
             if key not in args:
-                raise ValueError(
-                    f"Unexpected argument '{key}' to override for " f"{cls.__name__}."
-                )
+                warnings.warn(f"New argument '{key}' added for {cls.__name__}.")
             args[key] = value
 
     @classmethod
@@ -429,9 +428,17 @@ class Module(torch.nn.Module):
 
             # Open the tar file and extract its contents to the temporary directory
             with tarfile.open(cached_file_name, "r") as tar:
-                tar.extractall(
-                    path=local_path, members=list(Module._safe_members(tar, local_path))
+                # Safely extract while supporting Python versions < 3.12 that lack the
+                # ``filter`` keyword.  Starting with 3.12, ``filter="data"`` is the
+                # recommended way to avoid unsafe members
+                extract_kwargs = dict(
+                    path=local_path,
+                    members=list(Module._safe_members(tar, local_path)),
                 )
+                if "filter" in tar.extractall.__code__.co_varnames:
+                    extract_kwargs["filter"] = "data"
+
+                tar.extractall(**extract_kwargs)
 
             # Check if the checkpoint is valid
             Module._check_checkpoint(local_path)
@@ -496,9 +503,16 @@ class Module(torch.nn.Module):
 
             # Open the tar file and extract its contents to the temporary directory
             with tarfile.open(cached_file_name, "r") as tar:
-                tar.extractall(
-                    path=local_path, members=list(Module._safe_members(tar, local_path))
+                # Safely extract while supporting Python versions < 3.12 that lack the
+                # ``filter`` keyword.  Starting with 3.12, ``filter="data"`` is the
+                # recommended way to avoid unsafe members;
+                extract_kwargs = dict(
+                    path=local_path,
+                    members=list(Module._safe_members(tar, local_path)),
                 )
+                if "filter" in tar.extractall.__code__.co_varnames:
+                    extract_kwargs["filter"] = "data"
+                tar.extractall(**extract_kwargs)
 
             # Check if the checkpoint is valid
             Module._check_checkpoint(local_path)
