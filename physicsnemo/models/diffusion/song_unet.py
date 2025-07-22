@@ -1125,8 +1125,11 @@ class SongUNetPosEmbd(SongUNet):
         if x.dtype != pos_embd.dtype:
             pos_embd = pos_embd.to(x.dtype)
         if lead_time_label is not None:
-            # all patches share same lead_time_label
+            # TODO: here we assume all patches share same lead_time_label -->
+            # need be changed
             embeddings = torch.cat([pos_embd, self.lt_embd[lead_time_label[0].int()]])
+        else:
+            embeddings = pos_embd
         return embedding_selector(embeddings)  # (B, N_pe, H, W)
 
     def _get_positional_embedding(self):
