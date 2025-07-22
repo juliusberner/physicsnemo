@@ -15,7 +15,7 @@
 # limitations under the License.
 
 """
-Model architecture layers used in the paper "Elucidating the Design Space of 
+Model architecture layers used in the paper "Elucidating the Design Space of
 Diffusion-Based Generative Models".
 """
 
@@ -325,7 +325,15 @@ def get_group_norm(
     might be adjusted to satisfy the `min_channels_per_group` condition.
     """
 
-    num_groups = min(num_groups, num_channels // min_channels_per_group)
+    num_groups = min(
+        num_groups,
+        (num_channels + min_channels_per_group - 1) // min_channels_per_group,
+    )
+    if num_channels % num_groups != 0:
+        raise ValueError(
+            "num_channels must be divisible by num_groups or min_channels_per_group"
+        )
+
     if use_apex_gn and not _is_apex_available:
         raise ValueError("'apex' is not installed, set `use_apex_gn=False`")
 
@@ -583,9 +591,11 @@ class UNetBlock(torch.nn.Module):
         self.num_heads = (
             0
             if not attention
-            else num_heads
-            if num_heads is not None
-            else out_channels // channels_per_head
+            else (
+                num_heads
+                if num_heads is not None
+                else out_channels // channels_per_head
+            )
         )
         self.dropout = dropout
         self.skip_scale = skip_scale
@@ -681,9 +691,11 @@ class UNetBlock(torch.nn.Module):
             )
 
     def forward(self, x, emb):
-        with nvtx.annotate(
-            message="UNetBlock", color="purple"
-        ) if self.profile_mode else contextlib.nullcontext():
+        with (
+            nvtx.annotate(message="UNetBlock", color="purple")
+            if self.profile_mode
+            else contextlib.nullcontext()
+        ):
             orig = x
             x = self.conv0(self.norm0(x))
             params = self.affine(emb).unsqueeze(2).unsqueeze(3)
