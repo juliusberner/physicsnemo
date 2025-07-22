@@ -33,7 +33,7 @@ from physicsnemo.registry import ModelRegistry
 from physicsnemo.utils.filesystem import _download_cached, _get_fs
 
 
-def load_state_dict_with_logging(
+def _load_state_dict_with_logging(
     module: torch.nn.Module, state_dict: Dict[str, Any], *args, **kwargs
 ):
     """Load state dictionary and log missing and unexpected keys
@@ -448,7 +448,7 @@ class Module(torch.nn.Module):
             model_dict = torch.load(
                 local_path.joinpath("model.pt"), map_location=device
             )
-            load_state_dict_with_logging(self, model_dict, strict=strict)
+            _load_state_dict_with_logging(self, model_dict, strict=strict)
 
     @classmethod
     def from_checkpoint(
@@ -556,7 +556,7 @@ class Module(torch.nn.Module):
                 local_path.joinpath("model.pt"), map_location=model.device
             )
 
-            load_state_dict_with_logging(model, model_dict, strict=strict)
+            _load_state_dict_with_logging(model, model_dict, strict=strict)
         return model
 
     @staticmethod
