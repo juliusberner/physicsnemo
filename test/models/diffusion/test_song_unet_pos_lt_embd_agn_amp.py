@@ -44,7 +44,7 @@ def setup_model_learnable_embd(img_resolution, lt_steps, lt_channels, N_pos):
     torch.manual_seed(0)
     model = SongUNetPosLtEmbd(
         img_resolution=img_resolution,
-        in_channels=C_x + N_pos + C_cond,
+        in_channels=C_x + N_pos + C_cond + lt_channels,
         out_channels=C_x,
         model_channels=16,
         channel_mult=[1, 2, 2],
@@ -70,7 +70,7 @@ def setup_model_ddm_plus_plus(img_resolution, lt_steps, lt_channels):
     torch.manual_seed(0)
     model = SongUNetPosLtEmbd(
         img_resolution=img_resolution,
-        in_channels=C_x + N_pos + C_cond,
+        in_channels=C_x + N_pos + C_cond + lt_channels,
         out_channels=C_x,
         lead_time_steps=lt_steps,
         lead_time_channels=lt_channels,
@@ -89,7 +89,7 @@ def setup_model_ncsn_plus_plus(img_resolution, lt_steps, lt_channels):
     torch.manual_seed(0)
     model = SongUNetPosLtEmbd(
         img_resolution=img_resolution,
-        in_channels=C_x + N_pos + C_cond,
+        in_channels=C_x + N_pos + C_cond + lt_channels,
         out_channels=C_x,
         embedding_type="fourier",
         channel_mult_noise=2,
