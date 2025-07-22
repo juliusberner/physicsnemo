@@ -104,13 +104,13 @@ def setup_model_ncsn_plus_plus(img_resolution, lt_steps, lt_channels):
     return model
 
 
-def generate_data_with_patches(device):
+def generate_data_with_patches(H_p, W_p, device):
     """
     Utility function to generate input data with patches in a consistent way
     accross multiple tests.
     """
     torch.manual_seed(0)
-    P, B, C_x, C_cond, H_p, W_p, lt_steps = 4, 3, 2, 3, 32, 64, 4
+    P, B, C_x, C_cond, lt_steps = 4, 3, 2, 3, 4
     max_offset = 35
     input_image = torch.randn([P * B, C_x + C_cond, H_p, W_p]).to(device)
     noise_label = torch.randn([P * B]).to(device)
@@ -119,19 +119,19 @@ def generate_data_with_patches(device):
     base_grid = torch.stack(
         torch.meshgrid(torch.arange(H_p), torch.arange(W_p), indexing="ij"), dim=0
     )[None].to(device)
-    offset = torch.randint(0, max_offset, (P, 2))[:, :, None, None]
+    offset = torch.randint(0, max_offset, (P, 2))[:, :, None, None].to(device)
     global_index = base_grid + offset
     return input_image, noise_label, class_label, lead_time_label, global_index
 
 
-def generate_data_no_patches(device):
+def generate_data_no_patches(H, W, device):
     """
     Utility function to generate input data without patches in a consistent way
     accross multiple tests.
     """
     torch.manual_seed(0)
-    B, C_x, C_cond, H_p, W_p, lt_steps = 3, 2, 3, 32, 64, 4
-    input_image = torch.randn([B, C_x + C_cond, H_p, W_p]).to(device)
+    B, C_x, C_cond, lt_steps = 3, 2, 3, 4
+    input_image = torch.randn([B, C_x + C_cond, H, W]).to(device)
     noise_label = torch.randn([B]).to(device)
     class_label = None
     lead_time_label = torch.randint(0, lt_steps, (B,)).to(device)
@@ -202,15 +202,8 @@ def test_song_unet_forward_no_patches(device):
     """
     torch._dynamo.reset()
 
-    # Generate data without patches
+    # Common parameters
     B, C_x, lt_steps = 3, 2, 4
-    (
-        input_image,
-        noise_label,
-        class_label,
-        lead_time_label,
-        global_index,
-    ) = generate_data_no_patches(device)
 
     # DDM++ model with square global shape (no compile because model too large)
     H = W = 128
@@ -221,13 +214,7 @@ def test_song_unet_forward_no_patches(device):
         .to(memory_format=torch.channels_last)
     )
     with torch.autocast("cuda", dtype=torch.bfloat16, enabled=True):
-        output_image = model(
-            input_image,
-            noise_label,
-            class_label,
-            lead_time_label=lead_time_label,
-            global_index=global_index,
-        )
+        output_image = model(*generate_data_no_patches(H, W, device))
     assert output_image.shape == (B, C_x, H, W)
     loss = output_image.sum()
     loss.backward()
@@ -242,13 +229,7 @@ def test_song_unet_forward_no_patches(device):
         .to(memory_format=torch.channels_last)
     )
     with torch.autocast("cuda", dtype=torch.bfloat16, enabled=True):
-        output_image = model(
-            input_image,
-            noise_label,
-            class_label,
-            lead_time_label=lead_time_label,
-            global_index=global_index,
-        )
+        output_image = model(*generate_data_no_patches(H, W, device))
     assert output_image.shape == (B, C_x, H, W)
     loss = output_image.sum()
     loss.backward()
@@ -265,13 +246,7 @@ def test_song_unet_forward_no_patches(device):
     # Compile model
     model = common.torch_compile_model(model)
     with torch.autocast("cuda", dtype=torch.bfloat16, enabled=True):
-        output_image = model(
-            input_image,
-            noise_label,
-            class_label,
-            lead_time_label=lead_time_label,
-            global_index=global_index,
-        )
+        output_image = model(*generate_data_no_patches(H, W, device))
     assert output_image.shape == (B, C_x, H, W)
     loss = output_image.sum()
     loss.backward()
@@ -291,15 +266,8 @@ def test_song_unet_forward_with_patches(device):
     """
     torch._dynamo.reset()
 
-    # Generate data with patches
+    # Common parameters
     P, B, C_x, H_p, W_p, lt_steps = 4, 3, 2, 32, 64, 4
-    (
-        input_image,
-        noise_label,
-        class_label,
-        lead_time_label,
-        global_index,
-    ) = generate_data_with_patches(device)
 
     # DDM++ model with square global shape (no compile because model too large)
     H = W = 128
@@ -310,13 +278,7 @@ def test_song_unet_forward_with_patches(device):
         .to(memory_format=torch.channels_last)
     )
     with torch.autocast("cuda", dtype=torch.bfloat16, enabled=True):
-        output_image = model(
-            input_image,
-            noise_label,
-            class_label,
-            lead_time_label=lead_time_label,
-            global_index=global_index,
-        )
+        output_image = model(*generate_data_with_patches(H_p, W_p, device))
     assert output_image.shape == (P * B, C_x, H_p, W_p)
     loss = output_image.sum()
     loss.backward()
@@ -331,13 +293,7 @@ def test_song_unet_forward_with_patches(device):
         .to(memory_format=torch.channels_last)
     )
     with torch.autocast("cuda", dtype=torch.bfloat16, enabled=True):
-        output_image = model(
-            input_image,
-            noise_label,
-            class_label,
-            lead_time_label=lead_time_label,
-            global_index=global_index,
-        )
+        output_image = model(*generate_data_with_patches(H_p, W_p, device))
     assert output_image.shape == (P * B, C_x, H_p, W_p)
     loss = output_image.sum()
     loss.backward()
@@ -354,13 +310,7 @@ def test_song_unet_forward_with_patches(device):
     # Compile model
     model = common.torch_compile_model(model)
     with torch.autocast("cuda", dtype=torch.bfloat16, enabled=True):
-        output_image = model(
-            input_image,
-            noise_label,
-            class_label,
-            lead_time_label=lead_time_label,
-            global_index=global_index,
-        )
+        output_image = model(*generate_data_with_patches(H_p, W_p, device))
     assert output_image.shape == (P * B, C_x, H_p, W_p)
     loss = output_image.sum()
     loss.backward()
@@ -376,15 +326,8 @@ def test_song_unet_positional_embedding_indexing_no_patches(device):
     input image is the entire global image).
     """
 
-    # Generate data without patches
+    # Common parameters
     B, lt_steps = 3, 4
-    (
-        input_image,
-        noise_label,
-        class_label,
-        lead_time_label,
-        global_index,
-    ) = generate_data_no_patches(device)
 
     # CorrDiff model with rectangular global shape
     H, W = 128, 112
@@ -394,9 +337,8 @@ def test_song_unet_positional_embedding_indexing_no_patches(device):
         .to(device)
         .to(memory_format=torch.channels_last)
     )
-    pos_embed = model.positional_embedding_indexing(
-        input_image, global_index, lead_time_label
-    )
+    inputs = generate_data_no_patches(H, W, device)
+    pos_embed = model.positional_embedding_indexing(inputs[0], inputs[4], inputs[3])
     assert pos_embed.shape == (B, N_pos + lt_channels, H, W)
     assert common.validate_tensor_accuracy(
         pos_embed,
@@ -412,15 +354,8 @@ def test_song_unet_positional_embedding_indexing_with_patches(device):
     is only a subset of the global image).
     """
 
-    # Generate data with patches
+    # Common parameters
     P, B, H_p, W_p, lt_steps = 4, 3, 32, 64, 4
-    (
-        input_image,
-        noise_label,
-        class_label,
-        lead_time_label,
-        global_index,
-    ) = generate_data_with_patches(device)
 
     # CorrDiff model with rectangular global shape
     H, W = 128, 112
@@ -430,9 +365,8 @@ def test_song_unet_positional_embedding_indexing_with_patches(device):
         .to(device)
         .to(memory_format=torch.channels_last)
     )
-    pos_embed = model.positional_embedding_indexing(
-        input_image, global_index, lead_time_label
-    )
+    inputs = generate_data_with_patches(H_p, W_p, device)
+    pos_embed = model.positional_embedding_indexing(inputs[0], inputs[4], inputs[3])
     assert pos_embed.shape == (P * B, N_pos + lt_channels, H_p, W_p)
     assert common.validate_tensor_accuracy(
         pos_embed,
@@ -448,28 +382,14 @@ def test_song_unet_optims_no_patches(device):
 
     # NOTE: for now only test the corrdiff architecture
     def setup_model():
-        lt_steps = 4
-        (
-            input_image,
-            noise_label,
-            class_label,
-            lead_time_label,
-            global_index,
-        ) = generate_data_no_patches(device)
         H, W = 128, 112
-        N_pos, lt_channels = 6, 8
+        N_pos, lt_steps, lt_channels = 6, 4, 8
         model = (
             setup_model_learnable_embd([H, W], lt_steps, lt_channels, N_pos)
             .to(device)
             .to(memory_format=torch.channels_last)
         )
-        return model, [
-            input_image,
-            noise_label,
-            class_label,
-            lead_time_label,
-            global_index,
-        ]
+        return model, generate_data_no_patches(H, W, device)
 
     # Ideally always check graphs first
     model, invar = setup_model()
@@ -491,28 +411,15 @@ def test_song_unet_optims_with_patches(device):
 
     # NOTE: for now only test the corrdiff architecture
     def setup_model():
-        lt_steps = 4
-        (
-            input_image,
-            noise_label,
-            class_label,
-            lead_time_label,
-            global_index,
-        ) = generate_data_with_patches(device)
         H, W = 128, 112
-        N_pos, lt_channels = 6, 8
+        H_p, W_p = 32, 64
+        N_pos, lt_steps, lt_channels = 6, 4, 8
         model = (
             setup_model_learnable_embd([H, W], lt_steps, lt_channels, N_pos)
             .to(device)
             .to(memory_format=torch.channels_last)
         )
-        return model, [
-            input_image,
-            noise_label,
-            class_label,
-            lead_time_label,
-            global_index,
-        ]
+        return model, generate_data_with_patches(H_p, W_p, device)
 
     # Ideally always check graphs first
     model, invar = setup_model()
@@ -533,15 +440,8 @@ def test_song_unet_checkpoint_no_patches(device):
     architectures. Uses input data without patches (i.e. input image is the
     entire global image)."""
 
-    # Generate data without patches
+    # Common parameters
     lt_steps = 4
-    (
-        input_image,
-        noise_label,
-        class_label,
-        lead_time_label,
-        global_index,
-    ) = generate_data_no_patches(device)
 
     # DDM++ model with square global shape
     H = W = 128
@@ -559,7 +459,7 @@ def test_song_unet_checkpoint_no_patches(device):
     assert common.validate_checkpoint(
         model_1,
         model_2,
-        (*[input_image, noise_label, class_label, lead_time_label, global_index],),
+        generate_data_no_patches(H, W, device),
         enable_autocast=True,
     )
 
@@ -579,7 +479,7 @@ def test_song_unet_checkpoint_no_patches(device):
     assert common.validate_checkpoint(
         model_1,
         model_2,
-        (*[input_image, noise_label, class_label, lead_time_label, global_index],),
+        generate_data_no_patches(H, W, device),
         enable_autocast=True,
     )
 
@@ -599,7 +499,7 @@ def test_song_unet_checkpoint_no_patches(device):
     assert common.validate_checkpoint(
         model_1,
         model_2,
-        (*[input_image, noise_label, class_label, lead_time_label, global_index],),
+        generate_data_no_patches(H, W, device),
         enable_autocast=True,
     )
 
@@ -612,15 +512,8 @@ def test_song_unet_checkpoint_with_patches(device):
     architectures. Uses input data with patches (i.e. input image is only a
     subset of the global image)."""
 
-    # Generate data with patches
-    lt_steps = 4
-    (
-        input_image,
-        noise_label,
-        class_label,
-        lead_time_label,
-        global_index,
-    ) = generate_data_with_patches(device)
+    # Common parameters
+    H_p, W_p, lt_steps = 32, 64, 4
 
     # DDM++ model with square global shape
     H = W = 128
@@ -638,7 +531,7 @@ def test_song_unet_checkpoint_with_patches(device):
     assert common.validate_checkpoint(
         model_1,
         model_2,
-        (*[input_image, noise_label, class_label, lead_time_label, global_index],),
+        generate_data_with_patches(H_p, W_p, device),
         enable_autocast=True,
     )
 
@@ -658,7 +551,7 @@ def test_song_unet_checkpoint_with_patches(device):
     assert common.validate_checkpoint(
         model_1,
         model_2,
-        (*[input_image, noise_label, class_label, lead_time_label, global_index],),
+        generate_data_with_patches(H_p, W_p, device),
         enable_autocast=True,
     )
 
@@ -678,7 +571,7 @@ def test_song_unet_checkpoint_with_patches(device):
     assert common.validate_checkpoint(
         model_1,
         model_2,
-        (*[input_image, noise_label, class_label, lead_time_label, global_index],),
+        generate_data_with_patches(H_p, W_p, device),
         enable_autocast=True,
     )
 
@@ -690,15 +583,8 @@ def test_song_unet_checkpoint_with_patches(device):
 def test_son_unet_deploy(device):
     """Test Song UNet deployment support"""
 
-    # Generate data with patches
-    lt_steps = 4
-    (
-        input_image,
-        noise_label,
-        class_label,
-        lead_time_label,
-        global_index,
-    ) = generate_data_with_patches(device)
+    # Common parameters
+    H_p, W_p, lt_steps = 32, 64, 4
 
     # CorrDiff model with rectangular global shape
     H, W = 128, 112
@@ -710,9 +596,9 @@ def test_son_unet_deploy(device):
     )
     assert common.validate_onnx_export(
         model,
-        (*[input_image, noise_label, class_label, lead_time_label, global_index],),
+        generate_data_with_patches(H_p, W_p, device),
     )
     assert common.validate_onnx_runtime(
         model,
-        (*[input_image, noise_label, class_label, lead_time_label, global_index],),
+        generate_data_with_patches(H_p, W_p, device),
     )

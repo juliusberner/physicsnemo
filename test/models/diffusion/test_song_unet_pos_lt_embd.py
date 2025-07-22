@@ -60,13 +60,13 @@ def setup_model_learnable_embd(img_resolution, lt_steps, lt_channels, N_pos):
     return model
 
 
-def generate_data_with_patches(device):
+def generate_data_with_patches(H_p, W_p, device):
     """
     Utility function to generate input data with patches in a consistent way
     accross multiple tests.
     """
     torch.manual_seed(0)
-    P, B, C_x, C_cond, H_p, W_p, lt_steps = 4, 3, 2, 3, 32, 64, 4
+    P, B, C_x, C_cond, lt_steps = 4, 3, 2, 3, 4
     max_offset = 35
     input_image = torch.randn([P * B, C_x + C_cond, H_p, W_p]).to(device)
     noise_label = torch.randn([P * B]).to(device)
@@ -75,19 +75,19 @@ def generate_data_with_patches(device):
     base_grid = torch.stack(
         torch.meshgrid(torch.arange(H_p), torch.arange(W_p), indexing="ij"), dim=0
     )[None].to(device)
-    offset = torch.randint(0, max_offset, (P, 2))[:, :, None, None]
+    offset = torch.randint(0, max_offset, (P, 2))[:, :, None, None].to(device)
     global_index = base_grid + offset
     return input_image, noise_label, class_label, lead_time_label, global_index
 
 
-def generate_data_no_patches(device):
+def generate_data_no_patches(H, W, device):
     """
     Utility function to generate input data without patches in a consistent way
     accross multiple tests.
     """
     torch.manual_seed(0)
-    B, C_x, C_cond, H_p, W_p, lt_steps = 3, 2, 3, 32, 64, 4
-    input_image = torch.randn([B, C_x + C_cond, H_p, W_p]).to(device)
+    B, C_x, C_cond, lt_steps = 3, 2, 3, 4
+    input_image = torch.randn([B, C_x + C_cond, H, W]).to(device)
     noise_label = torch.randn([B]).to(device)
     class_label = None
     lead_time_label = torch.randint(0, lt_steps, (B,)).to(device)
@@ -252,15 +252,8 @@ def test_song_unet_positional_embedding_indexing_no_patches(device):
     input image is the entire global image).
     """
 
-    # Generate data without patches
+    # Common parameters
     B, lt_steps = 3, 4
-    (
-        input_image,
-        noise_label,
-        class_label,
-        lead_time_label,
-        global_index,
-    ) = generate_data_no_patches(device)
 
     # CorrDiff model with rectangular global shape
     H, W = 128, 112
@@ -270,9 +263,8 @@ def test_song_unet_positional_embedding_indexing_no_patches(device):
         .to(device)
         .to(memory_format=torch.channels_last)
     )
-    pos_embed = model.positional_embedding_indexing(
-        input_image, global_index, lead_time_label
-    )
+    inputs = generate_data_no_patches(H, W, device)
+    pos_embed = model.positional_embedding_indexing(inputs[0], inputs[4], inputs[3])
     assert pos_embed.shape == (B, N_pos + lt_channels, H, W)
     assert common.validate_tensor_accuracy(
         pos_embed,
@@ -288,15 +280,8 @@ def test_song_unet_positional_embedding_indexing_with_patches(device):
     is only a subset of the global image).
     """
 
-    # Generate data with patches
+    # Common parameters
     P, B, H_p, W_p, lt_steps = 4, 3, 32, 64, 4
-    (
-        input_image,
-        noise_label,
-        class_label,
-        lead_time_label,
-        global_index,
-    ) = generate_data_with_patches(device)
 
     # CorrDiff model with rectangular global shape
     H, W = 128, 112
@@ -306,9 +291,8 @@ def test_song_unet_positional_embedding_indexing_with_patches(device):
         .to(device)
         .to(memory_format=torch.channels_last)
     )
-    pos_embed = model.positional_embedding_indexing(
-        input_image, global_index, lead_time_label
-    )
+    inputs = generate_data_with_patches(H_p, W_p, device)
+    pos_embed = model.positional_embedding_indexing(inputs[0], inputs[4], inputs[3])
     assert pos_embed.shape == (P * B, N_pos + lt_channels, H_p, W_p)
     assert common.validate_tensor_accuracy(
         pos_embed,
