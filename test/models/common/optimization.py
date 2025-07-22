@@ -206,7 +206,7 @@ def nop_backend(gm, inputs):
 
 def torch_compile_model(
     model: physicsnemo.Module, fullgraph: bool = True, error_on_recompile: bool = False
-) -> bool:
+) -> physicsnemo.Module:
     backend = (
         nop_backend  # for fast compilation for fx graph capture, use a nop backend
     )
