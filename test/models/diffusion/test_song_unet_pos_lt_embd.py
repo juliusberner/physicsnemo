@@ -35,7 +35,7 @@ def setup_model_learnable_embd(img_resolution, lt_steps, lt_channels, N_pos):
     """
     # Smaller architecture variant with learnable positional embeddings
     # (similar to CorrDiff example)
-    C_x, C_cond = 2, 3
+    C_x, C_cond = 4, 3
     attn_res = (
         img_resolution[0] // 4
         if isinstance(img_resolution, list) or isinstance(img_resolution, tuple)
@@ -66,7 +66,7 @@ def generate_data_with_patches(H_p, W_p, device):
     accross multiple tests.
     """
     torch.manual_seed(0)
-    P, B, C_x, C_cond, lt_steps = 4, 3, 2, 3, 4
+    P, B, C_x, C_cond, lt_steps = 4, 3, 4, 3, 4
     max_offset = 35
     input_image = torch.randn([P * B, C_x + C_cond, H_p, W_p]).to(device)
     noise_label = torch.randn([P * B]).to(device)
@@ -86,7 +86,7 @@ def generate_data_no_patches(H, W, device):
     accross multiple tests.
     """
     torch.manual_seed(0)
-    B, C_x, C_cond, lt_steps = 3, 2, 3, 4
+    B, C_x, C_cond, lt_steps = 3, 4, 3, 4
     input_image = torch.randn([B, C_x + C_cond, H, W]).to(device)
     noise_label = torch.randn([B]).to(device)
     class_label = None
