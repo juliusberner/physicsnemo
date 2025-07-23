@@ -62,12 +62,12 @@ def setup_model_learnable_embd(img_resolution, lt_steps, lt_channels, N_pos, see
     return model
 
 
-def setup_model_ddm_plus_plus(img_resolution, lt_steps, lt_channels):
+def setup_model_ddm_plus_plus(img_resolution, lt_steps, lt_channels, seed=0):
     """
     Create a model with similar architecture to DDM++.
     """
     C_x, N_pos, C_cond = 4, 4, 3
-    torch.manual_seed(0)
+    torch.manual_seed(seed)
     model = SongUNetPosLtEmbd(
         img_resolution=img_resolution,
         in_channels=C_x + N_pos + C_cond + lt_channels,
@@ -81,12 +81,12 @@ def setup_model_ddm_plus_plus(img_resolution, lt_steps, lt_channels):
     return model
 
 
-def setup_model_ncsn_plus_plus(img_resolution, lt_steps, lt_channels):
+def setup_model_ncsn_plus_plus(img_resolution, lt_steps, lt_channels, seed=0):
     """
     Create a model with similar architecture to NCSN++.
     """
     C_x, N_pos, C_cond = 4, 4, 3
-    torch.manual_seed(0)
+    torch.manual_seed(seed)
     model = SongUNetPosLtEmbd(
         img_resolution=img_resolution,
         in_channels=C_x + N_pos + C_cond + lt_channels,
@@ -447,12 +447,12 @@ def test_song_unet_checkpoint_no_patches(device):
     H = W = 128
     lt_steps, lt_channels = 4, 8
     model_1 = (
-        setup_model_ddm_plus_plus(H, lt_steps, lt_channels)
+        setup_model_ddm_plus_plus(H, lt_steps, lt_channels, seed=0)
         .to(device)
         .to(memory_format=torch.channels_last)
     )
     model_2 = (
-        setup_model_ddm_plus_plus(H, lt_steps, lt_channels)
+        setup_model_ddm_plus_plus(H, lt_steps, lt_channels, seed=1)
         .to(device)
         .to(memory_format=torch.channels_last)
     )
@@ -467,12 +467,12 @@ def test_song_unet_checkpoint_no_patches(device):
     H = W = 128
     lt_steps, lt_channels = 4, 8
     model_1 = (
-        setup_model_ncsn_plus_plus(H, lt_steps, lt_channels)
+        setup_model_ncsn_plus_plus(H, lt_steps, lt_channels, seed=0)
         .to(device)
         .to(memory_format=torch.channels_last)
     )
     model_2 = (
-        setup_model_ncsn_plus_plus(H, lt_steps, lt_channels)
+        setup_model_ncsn_plus_plus(H, lt_steps, lt_channels, seed=1)
         .to(device)
         .to(memory_format=torch.channels_last)
     )
@@ -487,12 +487,12 @@ def test_song_unet_checkpoint_no_patches(device):
     H, W = 128, 112
     N_pos, lt_steps, lt_channels = 6, 4, 8
     model_1 = (
-        setup_model_learnable_embd([H, W], lt_steps, lt_channels, N_pos)
+        setup_model_learnable_embd([H, W], lt_steps, lt_channels, N_pos, seed=0)
         .to(device)
         .to(memory_format=torch.channels_last)
     )
     model_2 = (
-        setup_model_learnable_embd([H, W], lt_steps, lt_channels, N_pos)
+        setup_model_learnable_embd([H, W], lt_steps, lt_channels, N_pos, seed=1)
         .to(device)
         .to(memory_format=torch.channels_last)
     )
