@@ -28,7 +28,7 @@ import common
 from physicsnemo.models.diffusion import SongUNetPosLtEmbd
 
 
-def setup_model_learnable_embd(img_resolution, lt_steps, lt_channels, N_pos):
+def setup_model_learnable_embd(img_resolution, lt_steps, lt_channels, N_pos, seed=0):
     """
     Create a model with similar architecture to CorrDiff (learnable positional
     embeddings, self-attention, learnable lead time embeddings).
@@ -41,7 +41,7 @@ def setup_model_learnable_embd(img_resolution, lt_steps, lt_channels, N_pos):
         if isinstance(img_resolution, list) or isinstance(img_resolution, tuple)
         else img_resolution // 4
     )
-    torch.manual_seed(0)
+    torch.manual_seed(seed)
     model = SongUNetPosLtEmbd(
         img_resolution=img_resolution,
         in_channels=C_x + N_pos + C_cond + lt_channels,
@@ -104,12 +104,12 @@ def setup_model_ncsn_plus_plus(img_resolution, lt_steps, lt_channels):
     return model
 
 
-def generate_data_with_patches(H_p, W_p, device):
+def generate_data_with_patches(H_p, W_p, device, seed=0):
     """
     Utility function to generate input data with patches in a consistent way
     accross multiple tests.
     """
-    torch.manual_seed(0)
+    torch.manual_seed(seed)
     P, B, C_x, C_cond, lt_steps = 4, 3, 4, 3, 4
     max_offset = 35
     input_image = torch.randn([P * B, C_x + C_cond, H_p, W_p]).to(device)
@@ -124,12 +124,12 @@ def generate_data_with_patches(H_p, W_p, device):
     return input_image, noise_label, class_label, lead_time_label, global_index
 
 
-def generate_data_no_patches(H, W, device):
+def generate_data_no_patches(H, W, device, seed=0):
     """
     Utility function to generate input data without patches in a consistent way
     accross multiple tests.
     """
-    torch.manual_seed(0)
+    torch.manual_seed(seed)
     B, C_x, C_cond, lt_steps = 3, 4, 3, 4
     input_image = torch.randn([B, C_x + C_cond, H, W]).to(device)
     noise_label = torch.randn([B]).to(device)
@@ -519,12 +519,12 @@ def test_song_unet_checkpoint_with_patches(device):
     H = W = 128
     lt_steps, lt_channels = 4, 8
     model_1 = (
-        setup_model_ddm_plus_plus(H, lt_steps, lt_channels)
+        setup_model_ddm_plus_plus(H, lt_steps, lt_channels, seed=0)
         .to(device)
         .to(memory_format=torch.channels_last)
     )
     model_2 = (
-        setup_model_ddm_plus_plus(H, lt_steps, lt_channels)
+        setup_model_ddm_plus_plus(H, lt_steps, lt_channels, seed=1)
         .to(device)
         .to(memory_format=torch.channels_last)
     )
@@ -539,12 +539,12 @@ def test_song_unet_checkpoint_with_patches(device):
     H = W = 128
     lt_steps, lt_channels = 4, 8
     model_1 = (
-        setup_model_ncsn_plus_plus(H, lt_steps, lt_channels)
+        setup_model_ncsn_plus_plus(H, lt_steps, lt_channels, seed=0)
         .to(device)
         .to(memory_format=torch.channels_last)
     )
     model_2 = (
-        setup_model_ncsn_plus_plus(H, lt_steps, lt_channels)
+        setup_model_ncsn_plus_plus(H, lt_steps, lt_channels, seed=1)
         .to(device)
         .to(memory_format=torch.channels_last)
     )
@@ -559,12 +559,12 @@ def test_song_unet_checkpoint_with_patches(device):
     H, W = 128, 112
     N_pos, lt_steps, lt_channels = 6, 4, 8
     model_1 = (
-        setup_model_learnable_embd([H, W], lt_steps, lt_channels, N_pos)
+        setup_model_learnable_embd([H, W], lt_steps, lt_channels, N_pos, seed=0)
         .to(device)
         .to(memory_format=torch.channels_last)
     )
     model_2 = (
-        setup_model_learnable_embd([H, W], lt_steps, lt_channels, N_pos)
+        setup_model_learnable_embd([H, W], lt_steps, lt_channels, N_pos, seed=1)
         .to(device)
         .to(memory_format=torch.channels_last)
     )

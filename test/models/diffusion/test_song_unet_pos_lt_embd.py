@@ -28,7 +28,7 @@ import common
 from physicsnemo.models.diffusion import SongUNetPosLtEmbd as UNet
 
 
-def setup_model_learnable_embd(img_resolution, lt_steps, lt_channels, N_pos):
+def setup_model_learnable_embd(img_resolution, lt_steps, lt_channels, N_pos, seed=0):
     """
     Create a model with similar architecture to CorrDiff (learnable positional
     embeddings, self-attention, learnable lead time embeddings).
@@ -41,7 +41,7 @@ def setup_model_learnable_embd(img_resolution, lt_steps, lt_channels, N_pos):
         if isinstance(img_resolution, list) or isinstance(img_resolution, tuple)
         else img_resolution // 4
     )
-    torch.manual_seed(0)
+    torch.manual_seed(seed)
     model = UNet(
         img_resolution=img_resolution,
         in_channels=C_x + N_pos + C_cond + lt_channels,
@@ -60,12 +60,12 @@ def setup_model_learnable_embd(img_resolution, lt_steps, lt_channels, N_pos):
     return model
 
 
-def generate_data_with_patches(H_p, W_p, device):
+def generate_data_with_patches(H_p, W_p, device, seed=0):
     """
     Utility function to generate input data with patches in a consistent way
     accross multiple tests.
     """
-    torch.manual_seed(0)
+    torch.manual_seed(seed)
     P, B, C_x, C_cond, lt_steps = 4, 3, 4, 3, 4
     max_offset = 35
     input_image = torch.randn([P * B, C_x + C_cond, H_p, W_p]).to(device)
@@ -80,12 +80,12 @@ def generate_data_with_patches(H_p, W_p, device):
     return input_image, noise_label, class_label, lead_time_label, global_index
 
 
-def generate_data_no_patches(H, W, device):
+def generate_data_no_patches(H, W, device, seed=0):
     """
     Utility function to generate input data without patches in a consistent way
     accross multiple tests.
     """
-    torch.manual_seed(0)
+    torch.manual_seed(seed)
     B, C_x, C_cond, lt_steps = 3, 4, 3, 4
     input_image = torch.randn([B, C_x + C_cond, H, W]).to(device)
     noise_label = torch.randn([B]).to(device)
@@ -505,7 +505,7 @@ def test_song_unet_optims(device):
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_song_unet_checkpoint(device):
     """Test Song UNet checkpoint save/load"""
-    # Construct FNO models
+
     model_1 = UNet(
         img_resolution=16,
         in_channels=6,
