@@ -60,12 +60,12 @@ def setup_model_learnable_embd(img_resolution, lt_steps, lt_channels, N_pos, see
     return model
 
 
-def generate_data_with_patches(H_p, W_p, device, seed=0):
+def generate_data_with_patches(H_p, W_p, device):
     """
     Utility function to generate input data with patches in a consistent way
     accross multiple tests.
     """
-    torch.manual_seed(seed)
+    torch.manual_seed(0)
     P, B, C_x, C_cond, lt_steps = 4, 3, 4, 3, 4
     max_offset = 35
     input_image = torch.randn([P * B, C_x + C_cond, H_p, W_p]).to(device)
@@ -80,12 +80,12 @@ def generate_data_with_patches(H_p, W_p, device, seed=0):
     return input_image, noise_label, class_label, lead_time_label, global_index
 
 
-def generate_data_no_patches(H, W, device, seed=0):
+def generate_data_no_patches(H, W, device):
     """
     Utility function to generate input data without patches in a consistent way
     accross multiple tests.
     """
-    torch.manual_seed(seed)
+    torch.manual_seed(0)
     B, C_x, C_cond, lt_steps = 3, 4, 3, 4
     input_image = torch.randn([B, C_x + C_cond, H, W]).to(device)
     noise_label = torch.randn([B]).to(device)
