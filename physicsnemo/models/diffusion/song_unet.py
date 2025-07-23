@@ -906,7 +906,7 @@ class SongUNetPosEmbd(SongUNet):
                     selected_pos_embd = self.positional_embedding_indexing(
                         x, global_index=global_index, lead_time_label=lead_time_label
                     )
-                x = torch.cat((x, selected_pos_embd), dim=1)
+                x = torch.cat((x, selected_pos_embd.to(x.dtype)), dim=1)
 
             out = super().forward(x, noise_labels, class_labels, augment_labels)
 
