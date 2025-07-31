@@ -811,6 +811,8 @@ class UNetBlock(torch.nn.Module):
             )
         else:
             self.attn = None
+        # A hook to migrate legacy attention module
+        self.register_load_state_dict_pre_hook(self._migrate_attention_module)
 
     def forward(self, x, emb):
         with (
@@ -872,8 +874,19 @@ class UNetBlock(torch.nn.Module):
         self._migrate_attention_module(state_dict)
         return super().load_state_dict(state_dict, strict=strict)
 
-    def _migrate_attention_module(self, state_dict):
-        """Handle legacy checkpoints that stored attention layers at root.
+    @staticmethod
+    def _migrate_attention_module(
+        module,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs,
+    ):
+        """``load_state_dict`` pre-hook that handles legacy checkpoints that
+        stored attention layers at root.
 
         The earliest versions of ``UNetBlock`` stored the attention-layer
         parameters directly on the block using attribute names contained in
@@ -908,20 +921,20 @@ class UNetBlock(torch.nn.Module):
 
         # Validation and warnings
         src_keys = set(state_dict.keys()) & set(_mapping.keys())
-        target_keys = set(self.state_dict().keys()) & set(_mapping.values())
-        missing_keys, unexpected_keys = src_keys - target_keys, target_keys - src_keys
-        if missing_keys:
+        target_keys = set(module.state_dict().keys()) & set(_mapping.values())
+        _missing_keys, _unexpected_keys = src_keys - target_keys, target_keys - src_keys
+        if _missing_keys:
             warnings.warn(
                 "The following keys from the checkpoint were not found in the current "
                 "model and were ignored: "
-                f"{', '.join(sorted(missing_keys))}",
+                f"{', '.join(sorted(_missing_keys))}",
                 UserWarning,
             )
-        if unexpected_keys:
+        if _unexpected_keys:
             warnings.warn(
                 "The following keys of the current model are not present in the loaded "
                 "checkpoint: "
-                f"{', '.join(sorted(unexpected_keys))}",
+                f"{', '.join(sorted(_unexpected_keys))}",
                 UserWarning,
             )
 
