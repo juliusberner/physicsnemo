@@ -896,20 +896,16 @@ class UNetBlock(torch.nn.Module):
         """
 
         _mapping = {
-            "norm2.weight": "attn.norm.weight",
-            "norm2.bias": "attn.norm.bias",
-            "qkv.weight": "attn.qkv.weight",
-            "qkv.bias": "attn.qkv.bias",
-            "proj.weight": "attn.proj.weight",
-            "proj.bias": "attn.proj.bias",
+            f"{prefix}norm2.weight": f"{prefix}attn.norm.weight",
+            f"{prefix}norm2.bias": f"{prefix}attn.norm.bias",
+            f"{prefix}qkv.weight": f"{prefix}attn.qkv.weight",
+            f"{prefix}qkv.bias": f"{prefix}attn.qkv.bias",
+            f"{prefix}proj.weight": f"{prefix}attn.proj.weight",
+            f"{prefix}proj.bias": f"{prefix}attn.proj.bias",
         }
-
-        # Track which legacy keys were found.
-        legacy_found = set()
 
         for old_key, new_key in _mapping.items():
             if old_key in state_dict:
-                legacy_found.add(old_key)
                 # NOTE: Only migrate if destination key not already present to
                 # avoid accidental overwriting when both are present.
                 if new_key not in state_dict:
@@ -918,25 +914,6 @@ class UNetBlock(torch.nn.Module):
                     raise ValueError(
                         f"Checkpoint contains both legacy and new keys for {old_key}"
                     )
-
-        # Validation and warnings
-        src_keys = set(state_dict.keys()) & set(_mapping.keys())
-        target_keys = set(module.state_dict().keys()) & set(_mapping.values())
-        _missing_keys, _unexpected_keys = src_keys - target_keys, target_keys - src_keys
-        if _missing_keys:
-            warnings.warn(
-                "The following keys from the checkpoint were not found in the current "
-                "model and were ignored: "
-                f"{', '.join(sorted(_missing_keys))}",
-                UserWarning,
-            )
-        if _unexpected_keys:
-            warnings.warn(
-                "The following keys of the current model are not present in the loaded "
-                "checkpoint: "
-                f"{', '.join(sorted(_unexpected_keys))}",
-                UserWarning,
-            )
 
 
 class PositionalEmbedding(torch.nn.Module):
