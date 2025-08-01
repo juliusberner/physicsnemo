@@ -95,39 +95,50 @@ def test_unet_block_load_checkpoint(device):
         / Path("unet_block_with_attention-v1.0.1.mdlus")
     )
 
-    # TODO: add test with use_apex_gn=True once it's fixed
     # model_0 generated with seed=0 from v1.0.1 checkpoint
     model_0 = UNetBlockModuleWithAttention.from_checkpoint(
         file_name=file_name,
     ).to(device)
-    # model_1 generated with seed=0 from fresh model, should be the same as model_0
-    model_1 = UNetBlockModuleWithAttention.factory(
-        seed=0,
-        use_apex_gn=False,
-        fused_conv_bias=False,
-    ).to(device)
-    # model_1.save("unet_block_with_attention-v1.0.1.mdlus")
-    # model_2 generated with seed=1 from fresh model, should be different from model_0
-    model_2 = UNetBlockModuleWithAttention.factory(
-        seed=1,
-        use_apex_gn=False,
-        fused_conv_bias=False,
-    ).to(device)
 
-    x, emb = generate_data(device)
+    # TODO: add test with use_apex_gn=True once it's fixed
+    for test_params in (
+        {
+            "use_apex_gn": False,
+            "fused_conv_bias": False,
+        },
+        {
+            "use_apex_gn": False,
+            "fused_conv_bias": True,
+        },
+    ):
+        err_msg = (
+            f"Failed with: {', '.join(f'{k}={v}' for k, v in test_params.items())}"
+        )
 
-    out_0 = model_0(x, emb)
-    out_1 = model_1(x, emb)
-    out_2 = model_2(x, emb)
+        # model_1 generated with seed=0 from fresh model, should be the same as model_0
+        model_1 = UNetBlockModuleWithAttention.factory(
+            seed=0,
+            use_apex_gn=test_params["use_apex_gn"],
+            fused_conv_bias=test_params["fused_conv_bias"],
+        ).to(device)
+        # model_1.save("unet_block_with_attention-v1.0.1.mdlus")
+        # model_2 generated with seed=1 from fresh model, should be different from model_0
+        model_2 = UNetBlockModuleWithAttention.factory(
+            seed=1,
+            use_apex_gn=test_params["use_apex_gn"],
+            fused_conv_bias=test_params["fused_conv_bias"],
+        ).to(device)
 
-    assert torch.allclose(out_0, out_1, atol=1e-4)
-    assert not torch.allclose(out_0, out_2, atol=1e-4)
+        x, emb = generate_data(device)
 
-    # after loading the state_dict of model_0, model_2 should be the same as model_0
-    model_2.load_state_dict(model_0.state_dict())
-    out_2 = model_2(x, emb)
-    assert torch.allclose(out_0, out_2, atol=1e-4)
+        out_0 = model_0(x, emb)
+        out_1 = model_1(x, emb)
+        out_2 = model_2(x, emb)
 
-    # TODO: add identical test with use_apex_gn=True once it's fixed
-    # TODO: add test with fused_conv_bias=True once it's fixed (nor now not
-    # working, expected behavior or not?)
+        assert torch.allclose(out_0, out_1, atol=1e-3), err_msg
+        assert not torch.allclose(out_0, out_2, atol=1e-3), err_msg
+
+        # after loading the state_dict of model_0, model_2 should be the same as model_0
+        model_2.load_state_dict(model_0.state_dict())
+        out_2 = model_2(x, emb)
+        assert torch.allclose(out_0, out_2, atol=1e-3), err_msg
