@@ -436,10 +436,6 @@ class GroupNorm(torch.nn.Module):
         self.amp_mode = amp_mode
 
     def forward(self, x):
-        if (not x.is_cuda) and self.use_apex_gn:
-            warnings.warn(
-                "Apex GroupNorm is not supported on CPU. Please move your tensor to GPU or disable use_apex_gn."
-            )
         weight, bias = self.weight, self.bias
         _validate_amp(self.amp_mode)
         if not self.amp_mode:
