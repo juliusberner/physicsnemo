@@ -78,6 +78,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `training.hp` replaced by `generation` for generation).
 - Diffusion utils: patch-based inference and lead time support with
   deterministic sampler.
+- Diffusion models: consolidate `ApexGroupNorm` and `GroupNorm` in
+  `models/diffusion/layers.py` with a factory `get_group_norm` that can
+  be used to instantiate either one of them.
+- Physicsnemo models: improved checkpoint loading API in
+  `Module.from_checkpoint` that now exposes a `strict` parameter to raise error
+  on missing/unexpected keys, similar to that used in
+  `torch.nn.Module.load_state_dict`.
 
 ### Deprecated
 
