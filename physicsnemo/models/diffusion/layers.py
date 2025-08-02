@@ -590,7 +590,7 @@ class Attention(torch.nn.Module):
         fused_conv_bias: bool = False,
     ) -> None:
         super().__init__()
-        self.norm = GroupNorm(
+        self.norm = get_group_norm(
             num_channels=out_channels,
             eps=eps,
             use_apex_gn=use_apex_gn,
