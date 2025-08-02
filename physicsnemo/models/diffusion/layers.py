@@ -330,7 +330,7 @@ def get_group_norm(
     use_apex_gn: bool = False,
     act: str = None,
     amp_mode: bool = False,
-):
+) -> torch.nn.Module:
     """
     Utility function to get the GroupNorm layer, either from apex or from torch.
 
@@ -338,23 +338,30 @@ def get_group_norm(
     ----------
     num_channels : int
         Number of channels in the input tensor.
-    num_groups : int, optional
-        Desired number of groups to divide the input channels, by default 32.
-        This might be adjusted based on the `min_channels_per_group`.
-    eps : float, optional
-        A small number added to the variance to prevent division by zero, by default
-        1e-5.
-    use_apex_gn : bool, optional
+    num_groups : int, optional, default=32
+        Desired number of groups to divide the input channels.
+        This might be adjusted based on the ``min_channels_per_group``.
+    eps : float, optional, default=1e-5
+        A small number added to the variance to prevent division by zero.
+    use_apex_gn : bool, optional, default=False
         A boolean flag indicating whether we want to use Apex GroupNorm for NHWC layout.
         Need to set this as False on cpu. Defaults to False.
-    act : str, optional
-        The activation function to use when fusing activation with GroupNorm. Defaults to None.
-    amp_mode : bool, optional
-        A boolean flag indicating whether mixed-precision (AMP) training is enabled. Defaults to False.
+    act : str, optional, default=None
+        The activation function to use when fusing activation with GroupNorm.
+    amp_mode : bool, optional, default=False
+        A boolean flag indicating whether mixed-precision (AMP) training is enabled.
+
+    Returns
+    -------
+    torch.nn.Module
+        The GroupNorm layer. If ``use_apex_gn`` is True, returns an
+        ApexGroupNorm layer, otherwise returns an instance of :class:`GroupNorm`.
+
     Notes
     -----
-    If `num_channels` is not divisible by `num_groups`, the actual number of groups
-    might be adjusted to satisfy the `min_channels_per_group` condition.
+    If ``num_channels`` is not divisible by ``num_groups``, the actual number
+    of groups might be adjusted to satisfy the ``min_channels_per_group``
+    condition.
     """
 
     num_groups = min(
