@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Functionality in DoMINO to take arbitrary number of `scalar` or `vector`
   global parameters and encode them using `class ParameterModel`
 - TopoDiff model and example.
+- Added ability for DoMINO model to return volume neighbors.
+- Added functionality in DoMINO recipe to introduce physics residual losses.
 - Diffusion models, metrics, and utils: implementation of Student-t
   distribution for EDM-based diffusion models (t-EDM). This feature is adapted
   from the paper [Heavy-Tailed Diffusion Models, Pandey et al.](https://arxiv.org/abs/2410.14171>).
@@ -64,7 +66,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   warnings are raised when attempting to use Apex group norm on CPU.
 - Diffusion utils: systematic compilation of patching operations in `stochastic_sampler`
   for improved performance.
-- Diffusion utils: patch-based inference and lead time support with deterministic sampler
 - CorrDiff example: added option for Student-t EDM (t-EDM) in `train.py` and
   `generate.py`. When training a CorrDiff diffusion model, this feature can be
   enabled with the hydra overrides `++training.hp.distribution=student_t` and
@@ -78,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `training.hp` replaced by `generation` for generation).
 - Diffusion utils: patch-based inference and lead time support with
   deterministic sampler.
+- Existing DGL-based XAeroNet example has been renamed to `xaeronet_dgl`.
+  Added new `xaeronet` example that uses PyTorch Geometric instead.
 - Diffusion models: consolidate `ApexGroupNorm` and `GroupNorm` in
   `models/diffusion/layers.py` with a factory `get_group_norm` that can
   be used to instantiate either one of them. `get_group_norm` is now the
