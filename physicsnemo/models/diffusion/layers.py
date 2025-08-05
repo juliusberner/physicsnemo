@@ -322,6 +322,37 @@ class Conv2d(torch.nn.Module):
         return x
 
 
+def compute_groupnorm_groups(num_channels: int, num_groups: int = 32, min_channels_per_group: int = 4) -> int:
+    """
+    Compute the number of groups for GroupNorm based on the number of channels and the minimum number of channels per group.
+    
+    Parameters
+    ----------
+    num_channels : int
+        Number of channels in the input tensor.
+    num_groups : int, optional
+        Desired number of groups to divide the input channels, by default 32.
+        This might be adjusted based on the `min_channels_per_group`.
+    min_channels_per_group : int, optional
+        Minimum channels required per group. This ensures that no group has fewer
+        channels than this number. By default 4.
+
+    Returns
+    -------
+    int
+        The number of groups to use for GroupNorm.
+    """
+    num_groups = min(
+        num_groups,
+        (num_channels + min_channels_per_group - 1) // min_channels_per_group,
+    )
+    if num_channels % num_groups != 0:
+        raise ValueError(
+            "num_channels must be divisible by num_groups or min_channels_per_group"
+        )
+    return num_groups
+
+
 def get_group_norm(
     num_channels: int,
     num_groups: int = 32,
@@ -338,9 +369,12 @@ def get_group_norm(
     ----------
     num_channels : int
         Number of channels in the input tensor.
-    num_groups : int, optional, default=32
-        Desired number of groups to divide the input channels.
-        This might be adjusted based on the ``min_channels_per_group``.
+    num_groups : int, optional
+        Desired number of groups to divide the input channels, by default 32.
+        This might be adjusted based on the `min_channels_per_group`.
+    min_channels_per_group : int, optional
+        Minimum channels required per group. This ensures that no group has fewer
+        channels than this number. By default 4.
     eps : float, optional, default=1e-5
         A small number added to the variance to prevent division by zero.
     use_apex_gn : bool, optional, default=False
@@ -363,21 +397,13 @@ def get_group_norm(
     of groups might be adjusted to satisfy the ``min_channels_per_group``
     condition.
     """
-
-    num_groups = min(
-        num_groups,
-        (num_channels + min_channels_per_group - 1) // min_channels_per_group,
-    )
-    if num_channels % num_groups != 0:
-        raise ValueError(
-            "num_channels must be divisible by num_groups or min_channels_per_group"
-        )
-
     if use_apex_gn and not _is_apex_available:
         raise ValueError("'apex' is not installed, set `use_apex_gn=False`")
 
     act = act.lower() if act else act
     if use_apex_gn:
+        # adjust number of groups to be consistent with GroupNorm
+        num_groups = compute_groupnorm_groups(num_channels, num_groups, min_channels_per_group)
         return ApexGroupNorm(
             num_groups=num_groups,
             num_channels=num_channels,
@@ -387,8 +413,9 @@ def get_group_norm(
         )
     else:
         return GroupNorm(
-            num_groups=num_groups,
             num_channels=num_channels,
+            num_groups=num_groups,
+            min_channels_per_group=min_channels_per_group,
             eps=eps,
             act=act,
             amp_mode=amp_mode,
@@ -406,13 +433,21 @@ class GroupNorm(torch.nn.Module):
 
     Parameters
     ----------
-    num_groups : int
-        Desired number of groups to divide the input channels.
     num_channels : int
         Number of channels in the input tensor.
+    num_groups : int, optional
+        Desired number of groups to divide the input channels, by default 32.
+        This might be adjusted based on the `min_channels_per_group`.
+    min_channels_per_group : int, optional
+        Minimum channels required per group. This ensures that no group has fewer
+        channels than this number. By default 4.
     eps : float, optional
         A small number added to the variance to prevent division by zero, by default
         1e-5.
+    use_apex_gn : bool, optional
+        Deprecated. Please use `get_group_norm` instead.
+    fused_act : bool, optional
+        Deprecated. Please use `get_group_norm` instead.
     act : str, optional
         The activation function to use when fusing activation with GroupNorm. Defaults to None.
     amp_mode : bool, optional
@@ -425,14 +460,24 @@ class GroupNorm(torch.nn.Module):
 
     def __init__(
         self,
-        num_groups: int,
         num_channels: int,
+        num_groups: int = 32,
+        min_channels_per_group: int = 4,
         eps: float = 1e-5,
+        use_apex_gn: bool = False,
+        fused_act: bool = False,
         act: str = None,
         amp_mode: bool = False,
     ):
         super().__init__()
-        self.num_groups = num_groups
+        # backwards compatibility warnings
+        if use_apex_gn:
+            warnings.warn( "'use_apex_gn' is deprecated. Please use 'get_group_norm' to enable Apex-based group norm." )
+        if fused_act:
+            warnings.warn( "'fused_act' is deprecated and only supported for Apex-based group norm. Please use `get_group_norm` to enable fused activations." )
+
+        # initialize groupnorm
+        self.num_groups = compute_groupnorm_groups(num_channels, num_groups, min_channels_per_group)
         self.eps = eps
         self.weight = torch.nn.Parameter(torch.ones(num_channels))
         self.bias = torch.nn.Parameter(torch.zeros(num_channels))
