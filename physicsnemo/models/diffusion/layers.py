@@ -907,6 +907,8 @@ class UNetBlock(torch.nn.Module):
             )
         else:
             self.attn = None
+        # A hook to migrate legacy attention module
+        self.register_load_state_dict_pre_hook(self._migrate_attention_module)
 
     def forward(self, x, emb):
         with (
@@ -968,8 +970,19 @@ class UNetBlock(torch.nn.Module):
         self._migrate_attention_module(state_dict)
         return super().load_state_dict(state_dict, strict=strict)
 
-    def _migrate_attention_module(self, state_dict):
-        """Handle legacy checkpoints that stored attention layers at root.
+    @staticmethod
+    def _migrate_attention_module(
+        module,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs,
+    ):
+        """``load_state_dict`` pre-hook that handles legacy checkpoints that
+        stored attention layers at root.
 
         The earliest versions of ``UNetBlock`` stored the attention-layer
         parameters directly on the block using attribute names contained in
@@ -979,20 +992,16 @@ class UNetBlock(torch.nn.Module):
         """
 
         _mapping = {
-            "norm2.weight": "attn.norm.weight",
-            "norm2.bias": "attn.norm.bias",
-            "qkv.weight": "attn.qkv.weight",
-            "qkv.bias": "attn.qkv.bias",
-            "proj.weight": "attn.proj.weight",
-            "proj.bias": "attn.proj.bias",
+            f"{prefix}norm2.weight": f"{prefix}attn.norm.weight",
+            f"{prefix}norm2.bias": f"{prefix}attn.norm.bias",
+            f"{prefix}qkv.weight": f"{prefix}attn.qkv.weight",
+            f"{prefix}qkv.bias": f"{prefix}attn.qkv.bias",
+            f"{prefix}proj.weight": f"{prefix}attn.proj.weight",
+            f"{prefix}proj.bias": f"{prefix}attn.proj.bias",
         }
-
-        # Track which legacy keys were found.
-        legacy_found = set()
 
         for old_key, new_key in _mapping.items():
             if old_key in state_dict:
-                legacy_found.add(old_key)
                 # NOTE: Only migrate if destination key not already present to
                 # avoid accidental overwriting when both are present.
                 if new_key not in state_dict:
@@ -1001,25 +1010,6 @@ class UNetBlock(torch.nn.Module):
                     raise ValueError(
                         f"Checkpoint contains both legacy and new keys for {old_key}"
                     )
-
-        # Validation and warnings
-        src_keys = set(state_dict.keys()) & set(_mapping.keys())
-        target_keys = set(self.state_dict().keys()) & set(_mapping.values())
-        missing_keys, unexpected_keys = src_keys - target_keys, target_keys - src_keys
-        if missing_keys:
-            warnings.warn(
-                "The following keys from the checkpoint were not found in the current "
-                "model and were ignored: "
-                f"{', '.join(sorted(missing_keys))}",
-                UserWarning,
-            )
-        if unexpected_keys:
-            warnings.warn(
-                "The following keys of the current model are not present in the loaded "
-                "checkpoint: "
-                f"{', '.join(sorted(unexpected_keys))}",
-                UserWarning,
-            )
 
 
 class PositionalEmbedding(torch.nn.Module):
