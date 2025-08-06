@@ -18,40 +18,21 @@ hydra:
   job:
     chdir: True
   run:
-    dir: ./outputs/
+    dir: ./outputs_2d/
 
-# data configs
-data_dir: ./raw_dataset/deforming_plate/deforming_plate
-preprocess_output_dir: ./preprocessed_dataset
+start_epoch: 0
+max_epochs: 20
 
-# training configs
-batch_size: 1
-epochs: 30
-num_training_samples: 1000
-num_training_time_steps: 200
-lr: 0.0001
-lr_decay_rate: 0.9999917
-num_input_features: 3
-num_output_features: 4
-num_edge_features: 8
+batch_size: 20
+batch_size_test: 4
 
-# performance configs
-use_apex: True
-amp: False
-jit: False
-num_dataloader_workers: 8
-do_concat_trick: False
-num_processor_checkpoint_segments: 0
-recompute_activation: False
+start_lr: 1e-3
+lr_scheduler_gamma: 0.999948708
+checkpoint_save_freq: 5
 
-# tensorboard configs
-tensorboard_log_dir: ./tensorboard_logs
+model_type: seq2seq
+noise_scale: 0.0005
+grad_clip: 10.0
 
-ckpt_path: "./checkpoints"
-
-# test & visualization configs
-num_test_samples: 5
-num_test_time_steps: 200
-viz_vars: ["disp_mag"]
-frame_skip: 20
-frame_interval: 1
+device: cuda # or cpu
+train: true

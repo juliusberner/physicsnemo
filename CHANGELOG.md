@@ -24,11 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from the paper [Heavy-Tailed Diffusion Models, Pandey et al.](https://arxiv.org/abs/2410.14171>).
   This includes a new EDM preconditioner (`tEDMPrecondSuperRes`), a loss
   function (`tEDMResidualLoss`), and a new option in corrdiff `diffusion_step`.
-  :warning: This is an experimental feature that can be accessed through the
+  &#9888;&#65039; This is an experimental feature that can be accessed through the
   `physicsnemo.experimental` module; it might also be subjected to API changes
   without notice.
 - Bumped Ruff version from 0.0.290 to 0.12.5. Replaced Black with `ruff-format`.
 - Domino improvements with Unet attention module and user configs
+- Hybrid MeshGraphNet for modeling structural deformation
+- Enabled TransformerEngine backend in the `transolver` model.
 
 ### Changed
 
@@ -52,11 +54,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of custom attention logic. This will update the model architecture
   for `SongUNet`-based diffusion models. Changes are not BC-breaking and are
   transparent to the user.
-- :warning: **BC-breaking:** refactored the automatic mixed precision (AMP) API in layers
-  and models defined in `physicsnemo/models/diffusion/` for improved usability.
-  Note: it is now, not only possible, but *required* to explicitly set
-  `model.amp_mode = True` in order to use the model in a `torch.autocast`
-  clause. This applies to all `SongUNet`-based models.
+- &#9888;&#65039; **BC-breaking:** refactored the automatic mixed precision
+  (AMP) API in layers and models defined in `physicsnemo/models/diffusion/` for
+  improved usability. Note: it is now, not only possible, but *required* to
+  explicitly set `model.amp_mode = True` in order to use the model in a
+  `torch.autocast` clause. This applies to all `SongUNet`-based models.
 - Diffusion models: fixed and improved API to enable fp16 forward pass in
   `UNet` and `EDMPrecondSuperResolution` model wrappers; fp16 forward pass can
   now be toggled/untoggled by setting `model.use_fp16 = True`.
@@ -81,6 +83,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deterministic sampler.
 - Existing DGL-based XAeroNet example has been renamed to `xaeronet_dgl`.
   Added new `xaeronet` example that uses PyTorch Geometric instead.
+- Updated the deforming plate example to use the Hybrid MeshGraphNet model.
+- &#9888;&#65039; **BC-breaking:** Refactored the `transolver` model to improve
+  readability and performance, and extend to more use cases.
 - Diffusion models: consolidate `ApexGroupNorm` and `GroupNorm` in
   `models/diffusion/layers.py` with a factory `get_group_norm` that can
   be used to instantiate either one of them. `get_group_norm` is now the
@@ -90,7 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Module.from_checkpoint` that now exposes a `strict` parameter to raise error
   on missing/unexpected keys, similar to that used in
   `torch.nn.Module.load_state_dict`.
-
+  
 ### Deprecated
 
 ### Removed
@@ -107,6 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed an inadvertent change to the deterministic sampler 2nd order correction
 - Bug Fix in Domino model ball query layer
+- Fixed bug models/unet/unet.py: setting num_conv_layers=1 gives errors
 
 ## [1.1.0] - 2025-06-05
 
