@@ -22,7 +22,6 @@ Diffusion-Based Generative Models".
 import contextlib
 import importlib
 import math
-import warnings
 from typing import Any, Dict, List, Set
 
 import numpy as np
@@ -732,52 +731,69 @@ class UNetBlock(torch.nn.Module):
     Parameters:
     -----------
     in_channels : int
-        Number of input channels.
+        Number of input channels :math:`C_{in}`.
     out_channels : int
-        Number of output channels.
+        Number of output channels :math:`C_{out}`.
     emb_channels : int
-        Number of embedding channels.
-    up : bool, optional
-        If True, applies upsampling in the forward pass. By default False.
-    down : bool, optional
-        If True, applies downsampling in the forward pass. By default False.
-    attention : bool, optional
-        If True, enables the self-attention mechanism in the block. By default False.
-    num_heads : int, optional
-        Number of attention heads. If None, defaults to `out_channels // 64`.
-    channels_per_head : int, optional
-        Number of channels per attention head. By default 64.
-    dropout : float, optional
-        Dropout probability. By default 0.0.
-    skip_scale : float, optional
-        Scale factor applied to skip connections. By default 1.0.
-    eps : float, optional
-        Epsilon value used for normalization layers. By default 1e-5.
-    resample_filter : List[int], optional
-        Filter for resampling layers. By default [1, 1].
-    resample_proj : bool, optional
-        If True, resampling projection is enabled. By default False.
-    adaptive_scale : bool, optional
-        If True, uses adaptive scaling in the forward pass. By default True.
-    init : dict, optional
+        Number of embedding channels :math:`C_{emb}`.
+    up : bool, optional, default=False
+        If True, applies upsampling in the forward pass.
+    down : bool, optional, default=False
+        If True, applies downsampling in the forward pass.
+    attention : bool, optional, default=False
+        If True, enables the self-attention mechanism in the block.
+    num_heads : int, optional, default=None
+        Number of attention heads. If None, defaults to :math:`C_{out} / 64`.
+    channels_per_head : int, optional, default=64
+        Number of channels per attention head.
+    dropout : float, optional, default=0.0
+        Dropout probability.
+    skip_scale : float, optional, default=1.0
+        Scale factor applied to skip connections.
+    eps : float, optional, default=1e-5
+        Epsilon value used for normalization layers.
+    resample_filter : List[int], optional, default=``[1, 1]``
+        Filter for resampling layers.
+    resample_proj : bool, optional, default=False
+        If True, resampling projection is enabled.
+    adaptive_scale : bool, optional, default=True
+        If True, uses adaptive scaling in the forward pass.
+    init : dict, optional, default=``{}``
         Initialization parameters for convolutional and linear layers.
-    init_zero : dict, optional
-        Initialization parameters with zero weights for certain layers. By default
-        {'init_weight': 0}.
-    init_attn : dict, optional
+    init_zero : dict, optional, default=``{'init_weight': 0}``
+        Initialization parameters with zero weights for certain layers.
+    init_attn : dict, optional, default=``None``
         Initialization parameters specific to attention mechanism layers.
-        Defaults to 'init' if not provided.
-    use_apex_gn : bool, optional
+        Defaults to ``init`` if not provided.
+    use_apex_gn : bool, optional, default=False
         A boolean flag indicating whether we want to use Apex GroupNorm for NHWC layout.
-        Need to set this as False on cpu. Defaults to False.
-    act : str, optional
-        The activation function to use when fusing activation with GroupNorm. Defaults to None.
-    fused_conv_bias: bool, optional
-        A boolean flag indicating whether bias will be passed as a parameter of conv2d. By default False.
-    profile_mode:
+        Need to set this as False on cpu.
+    act : str, optional, default=None
+        The activation function to use when fusing activation with GroupNorm.
+    fused_conv_bias: bool, optional, default=False
+        A boolean flag indicating whether bias will be passed as a parameter of conv2d.
+    profile_mode: bool, optional, default=False
         A boolean flag indicating whether to enable all nvtx annotations during profiling.
-    amp_mode : bool, optional
-        A boolean flag indicating whether mixed-precision (AMP) training is enabled. Defaults to False.
+    amp_mode : bool, optional, default=False
+        A boolean flag indicating whether mixed-precision (AMP) training is
+        enabled.
+
+    Forward
+    -------
+    x : torch.Tensor
+        Input tensor of shape :math:`(B, C_{in}, H, W)`, where :math:`B` is batch
+        size, :math:`C_{in}` is ``in_channels``, and :math:`H, W` are spatial
+        dimensions.
+    emb : torch.Tensor
+        Embedding tensor of shape :math:`(B, C_{emb})`, where :math:`B` is batch
+        size, and :math:`C_{emb}` is ``emb_channels``.
+
+    Outputs
+    -------
+    torch.Tensor
+        Output tensor of shape :math:`(B, C_{out}, H, W)`, where :math:`B` is batch
+        size, :math:`C_{out}` is ``out_channels``, and :math:`H, W` are spatial
+        dimensions.
     """
 
     # NOTE: these attributes have specific usage in old checkpoints, do not
@@ -792,7 +808,7 @@ class UNetBlock(torch.nn.Module):
         up: bool = False,
         down: bool = False,
         attention: bool = False,
-        num_heads: int = None,
+        num_heads: int | None = None,
         channels_per_head: int = 64,
         dropout: float = 0.0,
         skip_scale: float = 1.0,
