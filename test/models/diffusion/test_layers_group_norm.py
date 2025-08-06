@@ -152,7 +152,7 @@ def test_group_norm_non_regression(device):
 
         assert common.validate_accuracy(
             out,
-            file_name=f"diffusion_group_norm_{test_params['arch_type']}-v1.0.1.pth",
+            file_name=f"output_diffusion_group_norm_{test_params['arch_type']}-v1.0.1.pth",
         ), err_msg
 
 
@@ -204,9 +204,6 @@ def test_get_group_norm_non_regression(device):
         ), err_msg
 
 
-# TODO : currently only test overrding use_apex_gn from False to True. Need to
-# add test to do the opposite (that is load checkpoint with use_apex_gn=True and
-# override it to False)
 @pytest.mark.parametrize("device", ["cuda:0", "cpu"])
 def test_get_group_norm_non_regression_from_checkpoint(device):
     """
@@ -215,14 +212,17 @@ def test_get_group_norm_non_regression_from_checkpoint(device):
     use Apex-based group norm when loading the checkpoint.
     """
 
+    # TODO : currently only test overrding use_apex_gn from False to True. Need to
+    # add test to do the opposite (that is load checkpoint with use_apex_gn=True and
+    # override it to False)
     TEST_PARAMS: Tuple[Dict[str, Any], ...] = (
-        {"arch_type": "GN_type_1", "use_apex_gn": False},
-        {"arch_type": "GN_type_2", "use_apex_gn": False},
+        {"arch_type": "GN_type_1", "chkpt_use_apex_gn": False, "use_apex_gn": False},
+        {"arch_type": "GN_type_2", "chkpt_use_apex_gn": False, "use_apex_gn": False},
     )
     if device == "cuda:0":
         TEST_PARAMS += (
-            {"arch_type": "GN_type_1", "use_apex_gn": True},
-            {"arch_type": "GN_type_2", "use_apex_gn": True},
+            {"arch_type": "GN_type_1", "chkpt_use_apex_gn": False, "use_apex_gn": True},
+            {"arch_type": "GN_type_2", "chkpt_use_apex_gn": False, "use_apex_gn": True},
         )
 
     for test_params in TEST_PARAMS:
@@ -235,7 +235,7 @@ def test_get_group_norm_non_regression_from_checkpoint(device):
             / Path("data")
             / Path(
                 f"checkpoint_diffusion_get_group_norm_{test_params['arch_type']}_"
-                f"use_apex_gn_{test_params['use_apex_gn']}.mdlus"
+                f"use_apex_gn_{test_params['chkpt_use_apex_gn']}.mdlus"
             )
         )
 
