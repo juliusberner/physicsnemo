@@ -396,8 +396,8 @@ def get_group_norm(
         ApexGroupNorm layer, otherwise returns an instance of
         :class:`~physicsnemo.models.diffusion.layers.GroupNorm`.
 
-    Notes
-    -----
+    .. note::
+
     If ``num_channels`` is not divisible by ``num_groups``, the actual number
     of groups might be adjusted to satisfy the ``min_channels_per_group``
     condition.
@@ -474,8 +474,8 @@ class GroupNorm(torch.nn.Module):
     torch.Tensor
         Output tensor of the same shape as input: :math:`(B, C, H, W)`.
 
-    Notes
-    -----
+    .. note::
+
     If ``num_channels`` is not divisible by ``num_groups``, the actual number of
     groups might be adjusted to satisfy the ``min_channels_per_group`` condition.
     """
