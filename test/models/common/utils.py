@@ -149,7 +149,7 @@ def save_output(output: Union[Tensor, Tuple[Tensor, ...]], file_name: Path):
 
 @torch.no_grad()
 def validate_accuracy(
-    output: Tensor,
+    output: Tensor | Tuple[Tensor, ...],
     rtol: float = 1e-3,
     atol: float = 1e-3,
     file_name: Union[str, None] = None,
@@ -158,8 +158,8 @@ def validate_accuracy(
 
     Parameters
     ----------
-    output : Tensor
-        Output tensor
+    output : Tensor | Tuple[Tensor, ...]
+        Output tensor or tuple of tensors
     rtol : float, optional
         Relative tolerance of error allowed, by default 1e-3
     atol : float, optional
@@ -200,9 +200,14 @@ def validate_accuracy(
         )
     # Load tensor dictionary and check
     else:
-        tensor_dict: Dict[Any, Tensor] = torch.load(str(file_name))
-        output_target: Tuple[Tensor, ...] = tuple(
-            [value.to(device) for value in tensor_dict.values()]
-        )
+        tensor_dict: Dict[Any, Tensor] | Tensor | Any = torch.load(str(file_name))
+        if isinstance(tensor_dict, dict):
+            output_target: Tuple[Tensor, ...] = tuple(
+                [value.to(device) for value in tensor_dict.values()]
+            )
+        elif isinstance(tensor_dict, Tensor):
+            output_target: Tuple[Tensor] = (tensor_dict.to(device),)
+        else:
+            raise ValueError(f"Invalid tensor dictionary type: {type(tensor_dict)}. ")
 
         return compare_output(output, output_target, rtol, atol)
