@@ -25,7 +25,7 @@ import torch
 import physicsnemo
 from physicsnemo.models.diffusion.layers import GroupNorm, get_group_norm
 
-script_path = os.path.abspath(__file__)
+script_path: str = os.path.abspath(__file__)
 sys.path.append(os.path.join(os.path.dirname(script_path), ".."))
 
 import common  # noqa: E402
