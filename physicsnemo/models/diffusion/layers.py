@@ -971,21 +971,6 @@ class UNetBlock(torch.nn.Module):
             raise AttributeError(f"Attribute '{name}' is reserved and cannot be set.")
         super().__setattr__(name, value)
 
-    def load_state_dict(self, state_dict, strict: bool = True):
-        """Custom ``load_state_dict`` that migrates legacy keys to their
-        new locations before loading the state dict.
-
-        Parameters
-        ----------
-        state_dict : dict
-            A state-dict containing parameters and persistent buffers.
-        strict : bool, optional
-            Passed through to ``torch.nn.Module.load_state_dict``.
-        """
-        # Migrate legacy keys for the attention module
-        self._migrate_attention_module(state_dict)
-        return super().load_state_dict(state_dict, strict=strict)
-
     @staticmethod
     def _migrate_attention_module(
         module,
