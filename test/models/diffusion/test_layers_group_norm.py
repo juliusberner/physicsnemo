@@ -153,8 +153,11 @@ def test_group_norm_non_regression(device, arch_type):
         ("cuda:0", True),
         ("cpu", False),
     ],
+    ids=["gpu", "gpu-apexgn", "cpu"],
 )
-@pytest.mark.parametrize("arch_type", ["GN_type_1", "GN_type_2"])
+@pytest.mark.parametrize(
+    "arch_type", ["GN_type_1", "GN_type_2"], ids=["arch1", "arch2"]
+)
 def test_get_group_norm_non_regression(device, arch_type, use_apex_gn):
     """
     Test that get_group_norm can be instantiated and compare the output with a
@@ -197,8 +200,11 @@ def test_get_group_norm_non_regression(device, arch_type, use_apex_gn):
         ("cuda:0", True, False),
         ("cpu", False, False),
     ],
+    ids=["gpu", "gpu-apexgn", "cpu"],
 )
-@pytest.mark.parametrize("arch_type", ["GN_type_1", "GN_type_2"])
+@pytest.mark.parametrize(
+    "arch_type", ["GN_type_1", "GN_type_2"], ids=["arch1", "arch2"]
+)
 def test_get_group_norm_non_regression_from_checkpoint(
     device, arch_type, use_apex_gn, chkpt_use_apex_gn
 ):
@@ -250,8 +256,11 @@ def test_get_group_norm_non_regression_from_checkpoint(
         ("cuda:0", True),
         ("cpu", False),
     ],
+    ids=["gpu", "gpu-apexgn", "cpu"],
 )
-@pytest.mark.parametrize("arch_type", ["GN_type_1", "GN_type_2"])
+@pytest.mark.parametrize(
+    "arch_type", ["GN_type_1", "GN_type_2"], ids=["arch1", "arch2"]
+)
 def test_get_group_norm_non_regression_from_group_norm_checkpoint(
     arch_type, device, use_apex_gn
 ):
