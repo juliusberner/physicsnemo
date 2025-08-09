@@ -229,10 +229,13 @@ def test_unet_block_generate_data(device):
         ("cuda:0", True),
         ("cpu", False),
     ],
+    ids=["gpu", "gpu-apexgn", "cpu"],
 )
-@pytest.mark.parametrize("fused_conv_bias", [False, True])
+@pytest.mark.parametrize("fused_conv_bias", [False, True], ids=["non_fused", "fused"])
 @pytest.mark.parametrize(
-    "arch_type", ["UNetBlock_type_1", "UNetBlock_type_2", "UNetBlock_type_3"]
+    "arch_type",
+    ["UNetBlock_type_1", "UNetBlock_type_2", "UNetBlock_type_3"],
+    ids=["arch1", "arch2", "arch3"],
 )
 def test_unet_block_non_regression(arch_type, device, use_apex_gn, fused_conv_bias):
     """
