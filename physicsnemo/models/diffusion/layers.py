@@ -700,26 +700,22 @@ class Attention(torch.nn.Module):
             )
         self.num_heads = num_heads
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x1: torch.Tensor = self.qkv(self.norm(x))
         q, k, v = (
-            torch.permute(
-                self.qkv(self.norm(x)), (0, 2, 3, 1)
-            )  # [B,H,W,C*3] in memory layout, shape [B,C*3,H,W] -> [B,H,W,C*3]
-            .reshape(  # -> [X.shape[0], heads, (H*W), C//heads, 3]
-                x.shape[0],
-                self.num_heads,
-                x.shape[2] * x.shape[3],
-                x.shape[1] // self.num_heads,
-                3,
+            (
+                x1.reshape(
+                    x.shape[0], self.num_heads, x.shape[1] // self.num_heads, 3, -1
+                )
             )
-            .unbind(-1)
-        )  # [B, heads, H*W, C//heads]
-
+            .permute(0, 1, 4, 3, 2)
+            .unbind(-2)
+        )
         attn = torch.nn.functional.scaled_dot_product_attention(
             q, k, v, scale=1 / math.sqrt(k.shape[-1])
         )
-        attn = attn.transpose(-1, -2)  # [B, 1, C, H*W]
-        x = self.proj(attn.reshape(*x.shape)).add_(x)
+        attn = attn.transpose(-1, -2)
+        x: torch.Tensor = self.proj(attn.reshape(*x.shape)).add_(x)
         return x
 
 
