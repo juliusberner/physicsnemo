@@ -17,7 +17,6 @@
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Tuple
 
 import pytest
 import torch
@@ -117,156 +116,145 @@ def generate_data(device: str):
 
 
 @pytest.mark.parametrize("device", ["cuda:0", "cpu"])
-def test_group_norm_non_regression(device):
+@pytest.mark.parametrize("arch_type", ["GN_type_1", "GN_type_2"])
+def test_group_norm_non_regression(device, arch_type):
     """
     Test that GroupNorm can be instantiated and compare the output with a
     reference output generated with v1.0.1.
     """
 
-    for test_params in (
-        {"arch_type": "GN_type_1"},
-        {"arch_type": "GN_type_2"},
-    ):
-        err_msg: str = (
-            f"Failed with: {', '.join(f'{k}={v}' for k, v in test_params.items())}"
-        )
+    model: GroupNormModule = GroupNormModule.factory(arch_type=arch_type).to(device)
 
-        model: GroupNormModule = GroupNormModule.factory(
-            arch_type=test_params["arch_type"]
-        ).to(device)
+    # Check that the model is instantiated correctly
+    if arch_type == "GN_type_1":
+        assert model.group_norm.num_groups == 16
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-5
+    elif arch_type == "GN_type_2":
+        assert model.group_norm.num_groups == 2
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-3
 
-        # Check that the model is instantiated correctly
-        if test_params["arch_type"] == "GN_type_1":
-            assert model.group_norm.num_groups == 16, err_msg
-            assert model.group_norm.weight.shape == (64,), err_msg
-            assert model.group_norm.bias.shape == (64,), err_msg
-            assert model.group_norm.eps == 1e-5, err_msg
-        elif test_params["arch_type"] == "GN_type_2":
-            assert model.group_norm.num_groups == 2, err_msg
-            assert model.group_norm.weight.shape == (64,), err_msg
-            assert model.group_norm.bias.shape == (64,), err_msg
-            assert model.group_norm.eps == 1e-3, err_msg
+    x: torch.Tensor = generate_data(device)
+    out: torch.Tensor = model(x)
 
-        x: torch.Tensor = generate_data(device)
-        out: torch.Tensor = model(x)
-
-        assert common.validate_accuracy(
-            out,
-            file_name=f"output_diffusion_group_norm_{test_params['arch_type']}-v1.0.1.pth",
-        ), err_msg
+    assert common.validate_accuracy(
+        out,
+        file_name=f"output_diffusion_group_norm_{arch_type}-v1.0.1.pth",
+    )
 
 
-@pytest.mark.parametrize("device", ["cuda:0", "cpu"])
-def test_get_group_norm_non_regression(device):
+@pytest.mark.parametrize(
+    ("deviceuse_apex_gn"),
+    [
+        ("cuda:0", False),
+        ("cuda:0", True),
+        ("cpu", False),
+    ],
+)
+@pytest.mark.parametrize("arch_type", ["GN_type_1", "GN_type_2"])
+def test_get_group_norm_non_regression(device, arch_type, use_apex_gn):
     """
     Test that get_group_norm can be instantiated and compare the output with a
     reference output generated with v1.0.1 (with the GroupNorm class).
     """
 
-    TEST_PARAMS: Tuple[Dict[str, Any], ...] = (
-        {"arch_type": "GN_type_1", "use_apex_gn": False},
-        {"arch_type": "GN_type_2", "use_apex_gn": False},
+    model: GetGroupNormModule = GetGroupNormModule.factory(
+        arch_type=arch_type,
+        use_apex_gn=use_apex_gn,
+    ).to(device)
+
+    # Check that the model is instantiated correctly
+    if arch_type == "GN_type_1":
+        assert model.group_norm.num_groups == 16
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-5
+    elif arch_type == "GN_type_2":
+        assert model.group_norm.num_groups == 2
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-3
+
+    x: torch.Tensor = generate_data(device)
+    out: torch.Tensor = model(x)
+
+    assert common.validate_accuracy(
+        out,
+        file_name=f"output_diffusion_group_norm_{arch_type}-v1.0.1.pth",
     )
-    if device == "cuda:0":
-        TEST_PARAMS += (
-            {"arch_type": "GN_type_1", "use_apex_gn": True},
-            {"arch_type": "GN_type_2", "use_apex_gn": True},
-        )
-
-    for test_params in TEST_PARAMS:
-        err_msg: str = (
-            f"Failed with: {', '.join(f'{k}={v}' for k, v in test_params.items())}"
-        )
-
-        model: GetGroupNormModule = GetGroupNormModule.factory(
-            arch_type=test_params["arch_type"],
-            use_apex_gn=test_params["use_apex_gn"],
-        ).to(device)
-
-        # Check that the model is instantiated correctly
-        if test_params["arch_type"] == "GN_type_1":
-            assert model.group_norm.num_groups == 16, err_msg
-            assert model.group_norm.weight.shape == (64,), err_msg
-            assert model.group_norm.bias.shape == (64,), err_msg
-            assert model.group_norm.eps == 1e-5, err_msg
-        elif test_params["arch_type"] == "GN_type_2":
-            assert model.group_norm.num_groups == 2, err_msg
-            assert model.group_norm.weight.shape == (64,), err_msg
-            assert model.group_norm.bias.shape == (64,), err_msg
-            assert model.group_norm.eps == 1e-3, err_msg
-
-        x: torch.Tensor = generate_data(device)
-        out: torch.Tensor = model(x)
-
-        assert common.validate_accuracy(
-            out,
-            file_name=f"output_diffusion_group_norm_{test_params['arch_type']}-v1.0.1.pth",
-        ), err_msg
 
 
-@pytest.mark.parametrize("device", ["cuda:0", "cpu"])
-def test_get_group_norm_non_regression_from_checkpoint(device):
+# TODO : currently only test overrding use_apex_gn from False to True. Need to
+# add test to do the opposite (that is load checkpoint with use_apex_gn=True and
+# override it to False)
+@pytest.mark.parametrize(
+    ("device", "use_apex_gn", "chkpt_use_apex_gn"),
+    [
+        ("cuda:0", False, False),
+        ("cuda:0", True, False),
+        ("cpu", False, False),
+    ],
+)
+@pytest.mark.parametrize("arch_type", ["GN_type_1", "GN_type_2"])
+def test_get_group_norm_non_regression_from_checkpoint(
+    device, arch_type, use_apex_gn, chkpt_use_apex_gn
+):
     """
     Tests simple loading and non-regression of a checkpoint generated with the
     get_group_norm class. Also tests the API to override ``use_apex_gn`` to
     use Apex-based group norm when loading the checkpoint.
     """
 
-    # TODO : currently only test overrding use_apex_gn from False to True. Need to
-    # add test to do the opposite (that is load checkpoint with use_apex_gn=True and
-    # override it to False)
-    TEST_PARAMS: Tuple[Dict[str, Any], ...] = (
-        {"arch_type": "GN_type_1", "chkpt_use_apex_gn": False, "use_apex_gn": False},
-        {"arch_type": "GN_type_2", "chkpt_use_apex_gn": False, "use_apex_gn": False},
+    file_name: str = str(
+        Path(__file__).parents[1].resolve()
+        / Path("data")
+        / Path(
+            f"checkpoint_diffusion_get_group_norm_{arch_type}_"
+            f"use_apex_gn_{chkpt_use_apex_gn}.mdlus"
+        )
     )
-    if device == "cuda:0":
-        TEST_PARAMS += (
-            {"arch_type": "GN_type_1", "chkpt_use_apex_gn": False, "use_apex_gn": True},
-            {"arch_type": "GN_type_2", "chkpt_use_apex_gn": False, "use_apex_gn": True},
-        )
 
-    for test_params in TEST_PARAMS:
-        err_msg: str = (
-            f"Failed with: {', '.join(f'{k}={v}' for k, v in test_params.items())}"
-        )
+    model: physicsnemo.Module = physicsnemo.Module.from_checkpoint(
+        file_name=file_name,
+        override_args={"use_apex_gn": use_apex_gn},
+    ).to(device)
 
-        file_name: str = str(
-            Path(__file__).parents[1].resolve()
-            / Path("data")
-            / Path(
-                f"checkpoint_diffusion_get_group_norm_{test_params['arch_type']}_"
-                f"use_apex_gn_{test_params['chkpt_use_apex_gn']}.mdlus"
-            )
-        )
+    # Check that the model is instantiated correctly
+    if arch_type == "GN_type_1":
+        assert model.group_norm.num_groups == 16
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-5
+    elif arch_type == "GN_type_2":
+        assert model.group_norm.num_groups == 2
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-3
 
-        model: physicsnemo.Module = physicsnemo.Module.from_checkpoint(
-            file_name=file_name,
-            override_args={"use_apex_gn": test_params["use_apex_gn"]},
-        ).to(device)
+    x: torch.Tensor = generate_data(device)
+    out: torch.Tensor = model(x)
 
-        # Check that the model is instantiated correctly
-        if test_params["arch_type"] == "GN_type_1":
-            assert model.group_norm.num_groups == 16, err_msg
-            assert model.group_norm.weight.shape == (64,), err_msg
-            assert model.group_norm.bias.shape == (64,), err_msg
-            assert model.group_norm.eps == 1e-5, err_msg
-        elif test_params["arch_type"] == "GN_type_2":
-            assert model.group_norm.num_groups == 2, err_msg
-            assert model.group_norm.weight.shape == (64,), err_msg
-            assert model.group_norm.bias.shape == (64,), err_msg
-            assert model.group_norm.eps == 1e-3, err_msg
-
-        x: torch.Tensor = generate_data(device)
-        out: torch.Tensor = model(x)
-
-        assert common.validate_accuracy(
-            out,
-            file_name=f"output_diffusion_group_norm_{test_params['arch_type']}-v1.0.1.pth",
-        ), err_msg
+    assert common.validate_accuracy(
+        out,
+        file_name=f"output_diffusion_group_norm_{arch_type}-v1.0.1.pth",
+    )
 
 
-@pytest.mark.parametrize("device", ["cuda:0", "cpu"])
-def test_get_group_norm_non_regression_from_group_norm_checkpoint(device):
+@pytest.mark.parametrize(
+    ("deviceuse_apex_gn"),
+    [
+        ("cuda:0", False),
+        ("cuda:0", True),
+        ("cpu", False),
+    ],
+)
+@pytest.mark.parametrize("arch_type", ["GN_type_1", "GN_type_2"])
+def test_get_group_norm_non_regression_from_group_norm_checkpoint(
+    arch_type, device, use_apex_gn
+):
     """
     Test that get_group_norm can be used to load a checkpoint generated with
     v1.0.1 and the GroupNorm class instead of get_group_norm. This also test
@@ -274,50 +262,33 @@ def test_get_group_norm_non_regression_from_group_norm_checkpoint(device):
     loading the checkpoint.
     """
 
-    TEST_PARAMS: Tuple[Dict[str, Any], ...] = (
-        {"arch_type": "GN_type_1", "use_apex_gn": False},
-        {"arch_type": "GN_type_2", "use_apex_gn": False},
+    file_name: str = str(
+        Path(__file__).parents[1].resolve()
+        / Path("data")
+        / Path(f"checkpoint_diffusion_group_norm_{arch_type}-v1.0.1.mdlus")
     )
-    if device == "cuda:0":
-        TEST_PARAMS += (
-            {"arch_type": "GN_type_1", "use_apex_gn": True},
-            {"arch_type": "GN_type_2", "use_apex_gn": True},
-        )
 
-    for test_params in TEST_PARAMS:
-        err_msg: str = (
-            f"Failed with: {', '.join(f'{k}={v}' for k, v in test_params.items())}"
-        )
+    model: physicsnemo.Module = physicsnemo.Module.from_checkpoint(
+        file_name=file_name,
+        override_args={"use_apex_gn": use_apex_gn},
+    ).to(device)
 
-        file_name: str = str(
-            Path(__file__).parents[1].resolve()
-            / Path("data")
-            / Path(
-                f"checkpoint_diffusion_group_norm_{test_params['arch_type']}-v1.0.1.mdlus"
-            )
-        )
+    # Check that the model is instantiated correctly
+    if arch_type == "GN_type_1":
+        assert model.group_norm.num_groups == 16
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-5
+    elif arch_type == "GN_type_2":
+        assert model.group_norm.num_groups == 2
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-3
 
-        model: physicsnemo.Module = physicsnemo.Module.from_checkpoint(
-            file_name=file_name,
-            override_args={"use_apex_gn": test_params["use_apex_gn"]},
-        ).to(device)
+    x: torch.Tensor = generate_data(device)
+    out: torch.Tensor = model(x)
 
-        # Check that the model is instantiated correctly
-        if test_params["arch_type"] == "GN_type_1":
-            assert model.group_norm.num_groups == 16, err_msg
-            assert model.group_norm.weight.shape == (64,), err_msg
-            assert model.group_norm.bias.shape == (64,), err_msg
-            assert model.group_norm.eps == 1e-5, err_msg
-        elif test_params["arch_type"] == "GN_type_2":
-            assert model.group_norm.num_groups == 2, err_msg
-            assert model.group_norm.weight.shape == (64,), err_msg
-            assert model.group_norm.bias.shape == (64,), err_msg
-            assert model.group_norm.eps == 1e-3, err_msg
-
-        x: torch.Tensor = generate_data(device)
-        out: torch.Tensor = model(x)
-
-        assert common.validate_accuracy(
-            out,
-            file_name=f"output_diffusion_group_norm_{test_params['arch_type']}-v1.0.1.pth",
-        ), err_msg
+    assert common.validate_accuracy(
+        out,
+        file_name=f"output_diffusion_group_norm_{arch_type}-v1.0.1.pth",
+    )
