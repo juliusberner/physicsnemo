@@ -147,7 +147,7 @@ def test_group_norm_non_regression(device, arch_type):
 
 
 @pytest.mark.parametrize(
-    ("deviceuse_apex_gn"),
+    ("device", "use_apex_gn"),
     [
         ("cuda:0", False),
         ("cuda:0", True),
@@ -244,7 +244,7 @@ def test_get_group_norm_non_regression_from_checkpoint(
 
 
 @pytest.mark.parametrize(
-    ("deviceuse_apex_gn"),
+    ("device", "use_apex_gn"),
     [
         ("cuda:0", False),
         ("cuda:0", True),
