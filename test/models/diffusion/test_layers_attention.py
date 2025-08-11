@@ -60,14 +60,14 @@ class AttentionModule(physicsnemo.Module):
 
     def __init__(
         self,
-        arch_type: str = "Attention_type_1",
+        arch_type: str = "attention_type_1",
         use_apex_gn: bool = False,
         fused_conv_bias: bool = False,
     ):
         super().__init__()
         C = 32
         # Single head
-        if arch_type == "Attention_type_1":
+        if arch_type == "attention_type_1":
             self.attention = Attention(
                 out_channels=C,
                 num_heads=1,
@@ -75,7 +75,7 @@ class AttentionModule(physicsnemo.Module):
                 fused_conv_bias=fused_conv_bias,
             )
         # Multi-head
-        elif arch_type == "Attention_type_2":
+        elif arch_type == "attention_type_2":
             self.attention = Attention(
                 out_channels=C,
                 num_heads=8,
@@ -112,7 +112,7 @@ def generate_data(device: str) -> torch.Tensor:
 @pytest.mark.parametrize("fused_conv_bias", [False, True], ids=["non_fused", "fused"])
 @pytest.mark.parametrize(
     "arch_type",
-    ["Attention_type_1", "Attention_type_2"],
+    ["attention_type_1", "attention_type_2"],
     ids=["arch1", "arch2"],
 )
 def test_attention_non_regression(arch_type, device, use_apex_gn, fused_conv_bias):
@@ -128,16 +128,16 @@ def test_attention_non_regression(arch_type, device, use_apex_gn, fused_conv_bia
     ).to(device)
 
     # Check that the model is instantiated correctly
-    if arch_type == "Attention_type_1":
+    if arch_type == "attention_type_1":
         assert model.attention.num_heads == 1
-    elif arch_type == "Attention_type_2":
+    elif arch_type == "attention_type_2":
         assert model.attention.num_heads == 8
 
     # Load reference data
     file_name: str = str(
         Path(__file__).parents[1].resolve()
         / Path("data")
-        / Path(f"output_diffusion_attention_{arch_type}.pth")
+        / Path(f"output_diffusion_{arch_type}.pth")
     )
     loaded_data: Dict[str, torch.Tensor] = torch.load(file_name)
     x, out_ref = loaded_data["x"].to(device), loaded_data["out"].to(device)
@@ -152,7 +152,7 @@ def test_attention_non_regression(arch_type, device, use_apex_gn, fused_conv_bia
 
     # assert common.validate_accuracy(
     #     out,
-    #     file_name=f"output_diffusion_attention_{arch_type}.pth",
+    #     file_name=f"output_diffusion_{arch_type}.pth",
     # )
 
 
@@ -168,7 +168,7 @@ def test_attention_non_regression(arch_type, device, use_apex_gn, fused_conv_bia
 @pytest.mark.parametrize("fused_conv_bias", [False, True], ids=["non_fused", "fused"])
 @pytest.mark.parametrize(
     "arch_type",
-    ["Attention_type_1", "Attention_type_2"],
+    ["attention_type_1", "attention_type_2"],
     ids=["arch1", "arch2"],
 )
 def test_attention_non_regression_from_checkpoint(
@@ -183,7 +183,7 @@ def test_attention_non_regression_from_checkpoint(
     file_name: str = str(
         Path(__file__).parents[1].resolve()
         / Path("data")
-        / Path(f"checkpoint_diffusion_attention_{arch_type}.mdlus")
+        / Path(f"checkpoint_diffusion_{arch_type}.mdlus")
     )
 
     model: physicsnemo.Module = physicsnemo.Module.from_checkpoint(
@@ -195,16 +195,16 @@ def test_attention_non_regression_from_checkpoint(
     ).to(device)
 
     # Check that the model is instantiated correctly
-    if arch_type == "Attention_type_1":
+    if arch_type == "attention_type_1":
         assert model.attention.num_heads == 1
-    elif arch_type == "Attention_type_2":
+    elif arch_type == "attention_type_2":
         assert model.attention.num_heads == 8
 
     # Load reference data
     file_name: str = str(
         Path(__file__).parents[1].resolve()
         / Path("data")
-        / Path(f"output_diffusion_attention_{arch_type}.pth")
+        / Path(f"output_diffusion_{arch_type}.pth")
     )
     loaded_data: Dict[str, torch.Tensor] = torch.load(file_name)
     x, out_ref = loaded_data["x"].to(device), loaded_data["out"].to(device)
@@ -217,7 +217,7 @@ def test_attention_non_regression_from_checkpoint(
 
     # assert common.validate_accuracy(
     #     out,
-    #     file_name=f"output_diffusion_attention_{arch_type}.pth",
+    #     file_name=f"output_diffusion_{arch_type}.pth",
     # )
 
 
@@ -228,7 +228,7 @@ def test_attention_non_regression_from_checkpoint(
 
 @pytest.mark.parametrize(
     "arch_type",
-    ["Attention_type_1", "Attention_type_2"],
+    ["attention_type_1", "attention_type_2"],
     ids=["arch1", "arch2"],
 )
 @pytest.mark.parametrize("device", ["cpu"])
@@ -240,14 +240,14 @@ def test_attention_generate_data(device, arch_type):
     model: AttentionModule = AttentionModule.factory(arch_type=arch_type).to(device)
 
     # Check that the model is instantiated correctly
-    if arch_type == "Attention_type_1":
+    if arch_type == "attention_type_1":
         assert model.attention.num_heads == 1
-    elif arch_type == "Attention_type_2":
+    elif arch_type == "attention_type_2":
         assert model.attention.num_heads == 8
 
-    model.save(f"checkpoint_diffusion_attention_{arch_type}.mdlus")
+    model.save(f"checkpoint_diffusion_{arch_type}.mdlus")
 
     x = generate_data(device)
     out: torch.Tensor = model(x)
 
-    torch.save({"x": x, "out": out}, f"output_diffusion_attention_{arch_type}.pth")
+    torch.save({"x": x, "out": out}, f"output_diffusion_{arch_type}.pth")
