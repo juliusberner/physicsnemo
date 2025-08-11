@@ -21,7 +21,8 @@ Diffusion-Based Generative Models".
 
 import contextlib
 import importlib
-import math
+
+# import math
 from typing import Any, Dict, List, Set
 
 import numpy as np
@@ -707,19 +708,28 @@ class Attention(torch.nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x1: torch.Tensor = self.qkv(self.norm(x))
-        q, k, v = (
-            (
-                x1.reshape(
-                    x.shape[0], self.num_heads, x.shape[1] // self.num_heads, 3, -1
-                )
-            )
-            .permute(0, 1, 4, 3, 2)
-            .unbind(-2)
-        )
-        attn = torch.nn.functional.scaled_dot_product_attention(
-            q, k, v, scale=1 / math.sqrt(k.shape[-1])
-        )
-        attn = attn.transpose(-1, -2)
+
+        # NOTE: V1.0.1 implementation
+        q, k, v = x1.reshape(
+            x.shape[0] * self.num_heads, x.shape[1] // self.num_heads, 3, -1
+        ).unbind(2)
+        w = AttentionOp.apply(q, k)
+        attn = torch.einsum("nqk,nck->ncq", w, v)
+
+        # q, k, v = (
+        #     (
+        #         x1.reshape(
+        #             x.shape[0], self.num_heads, x.shape[1] // self.num_heads, 3, -1
+        #         )
+        #     )
+        #     .permute(0, 1, 4, 3, 2)
+        #     .unbind(-2)
+        # )
+        # attn = torch.nn.functional.scaled_dot_product_attention(
+        #     q, k, v, scale=1 / math.sqrt(k.shape[-1])
+        # )
+        # attn = attn.transpose(-1, -2)
+
         x: torch.Tensor = self.proj(attn.reshape(*x.shape)).add_(x)
         return x
 

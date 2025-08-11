@@ -31,6 +31,10 @@ sys.path.append(os.path.join(os.path.dirname(script_path), ".."))
 # import common  # noqa: E402
 
 
+def _err(x: torch.Tensor, y: torch.Tensor) -> str:
+    return f"max_err: {torch.amax(torch.abs(x - y))}"
+
+
 def _instantiate_model(cls, seed: int = 0, **kwargs):
     """
     Helper function to instantiate a model with reproducible random parameters.
@@ -143,7 +147,7 @@ def test_attention_non_regression(arch_type, device, use_apex_gn, fused_conv_bia
     x, out_ref = loaded_data["x"].to(device), loaded_data["out"].to(device)
     out: torch.Tensor = model(x)
 
-    assert torch.allclose(out, out_ref, atol=1e-3, rtol=1e-3)
+    assert torch.allclose(out, out_ref, atol=1e-3, rtol=1e-3), _err(out, out_ref)
 
     # x = generate_data(device)
     # out: torch.Tensor = model(x)
@@ -210,7 +214,7 @@ def test_attention_non_regression_from_checkpoint(
     x, out_ref = loaded_data["x"].to(device), loaded_data["out"].to(device)
     out: torch.Tensor = model(x)
 
-    assert torch.allclose(out, out_ref, atol=1e-3, rtol=1e-3)
+    assert torch.allclose(out, out_ref, atol=1e-3, rtol=1e-3), _err(out, out_ref)
 
     # x = generate_data(device)
     # out: torch.Tensor = model(x)
