@@ -672,6 +672,16 @@ class Attention(torch.nn.Module):
         fused_conv_bias: bool = False,
     ) -> None:
         super().__init__()
+        # Parameters validation
+        if not isinstance(num_heads, int) or num_heads <= 0:
+            raise ValueError(
+                f"`num_heads` must be a positive integer, but got {num_heads}"
+            )
+        if out_channels % num_heads != 0:
+            raise ValueError(
+                f"`out_channels` must be divisible by `num_heads`, but got {out_channels} and {num_heads}"
+            )
+        self.num_heads = num_heads
         self.norm = get_group_norm(
             num_channels=out_channels,
             eps=eps,
@@ -694,11 +704,6 @@ class Attention(torch.nn.Module):
             amp_mode=amp_mode,
             **init_zero,
         )
-        if not isinstance(num_heads, int) or num_heads <= 0:
-            raise ValueError(
-                f"`num_heads` must be a positive integer, but got {num_heads}"
-            )
-        self.num_heads = num_heads
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x1: torch.Tensor = self.qkv(self.norm(x))
