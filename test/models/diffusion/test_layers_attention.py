@@ -85,7 +85,8 @@ class AttentionModule(physicsnemo.Module):
     factory: classmethod = classmethod(_instantiate_model)
 
     def forward(self, x):
-        return self.attention(x)
+        with torch.nn.attention.sdpa_kernel(torch.nn.attention.SDPBackend.MATH):
+            return self.attention(x)
 
 
 def generate_data(device: str) -> torch.Tensor:
@@ -140,9 +141,6 @@ def test_attention_non_regression(arch_type, device, use_apex_gn, fused_conv_bia
     )
 
 
-# TODO: for now only tests to override use_apex_gn from False to True. Need
-# tests to do the opposite, i.e. load checkpoint where use_apex_gn=True and
-# override with False.
 @pytest.mark.parametrize(
     ("device", "use_apex_gn"),
     [
