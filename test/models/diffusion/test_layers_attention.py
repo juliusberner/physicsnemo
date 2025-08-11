@@ -17,6 +17,7 @@
 import os
 import sys
 from pathlib import Path
+from typing import Dict
 
 import pytest
 import torch
@@ -27,7 +28,7 @@ from physicsnemo.models.diffusion.layers import Attention
 script_path: str = os.path.abspath(__file__)
 sys.path.append(os.path.join(os.path.dirname(script_path), ".."))
 
-import common  # noqa: E402
+# import common  # noqa: E402
 
 
 def _instantiate_model(cls, seed: int = 0, **kwargs):
@@ -132,13 +133,27 @@ def test_attention_non_regression(arch_type, device, use_apex_gn, fused_conv_bia
     elif arch_type == "Attention_type_2":
         assert model.attention.num_heads == 8
 
-    x = generate_data(device)
+    # Load reference data
+    file_name: str = str(
+        Path(__file__).parents[1].resolve()
+        / Path("data")
+        / Path(f"output_diffusion_attention_{arch_type}.pth")
+    )
+    loaded_data: Dict[str, torch.Tensor] = torch.load(file_name)
+    x, out_ref = loaded_data["x"].to(device), loaded_data["out"].to(device)
     out: torch.Tensor = model(x)
 
-    assert common.validate_accuracy(
-        out,
-        file_name=f"output_diffusion_attention_{arch_type}.pth",
-    )
+    assert torch.allclose(out, out_ref, atol=1e-3, rtol=1e-3)
+
+    # x = generate_data(device)
+    # out: torch.Tensor = model(x)
+
+    # assert torch.allclose(out, out_ref, atol=1e-5, rtol=1e-5)
+
+    # assert common.validate_accuracy(
+    #     out,
+    #     file_name=f"output_diffusion_attention_{arch_type}.pth",
+    # )
 
 
 @pytest.mark.parametrize(
@@ -185,47 +200,54 @@ def test_attention_non_regression_from_checkpoint(
     elif arch_type == "Attention_type_2":
         assert model.attention.num_heads == 8
 
-    x = generate_data(device)
+    # Load reference data
+    file_name: str = str(
+        Path(__file__).parents[1].resolve()
+        / Path("data")
+        / Path(f"output_diffusion_attention_{arch_type}.pth")
+    )
+    loaded_data: Dict[str, torch.Tensor] = torch.load(file_name)
+    x, out_ref = loaded_data["x"].to(device), loaded_data["out"].to(device)
     out: torch.Tensor = model(x)
 
-    assert common.validate_accuracy(
-        out,
-        file_name=f"output_diffusion_attention_{arch_type}.pth",
-    )
+    assert torch.allclose(out, out_ref, atol=1e-3, rtol=1e-3)
+
+    # x = generate_data(device)
+    # out: torch.Tensor = model(x)
+
+    # assert common.validate_accuracy(
+    #     out,
+    #     file_name=f"output_diffusion_attention_{arch_type}.pth",
+    # )
 
 
 # ---------------------------------------------------------------------------
 #   FOR CHECKPOINT AND DATA GENERATION
 # ---------------------------------------------------------------------------
 
-# @pytest.mark.parametrize(
-#     "arch_type",
-#     ["Attention_type_1", "Attention_type_2"],
-#     ids=["arch1", "arch2"],
-# )
-# @pytest.mark.parametrize("device", ["cpu"])
-# def test_attention_generate_data(device, arch_type):
-#     """
-#     Test that just generates data for the attention test.
-#     """
 
-#     model: AttentionModule = AttentionModule.factory(
-#         arch_type=arch_type
-#     ).to(device)
+@pytest.mark.parametrize(
+    "arch_type",
+    ["Attention_type_1", "Attention_type_2"],
+    ids=["arch1", "arch2"],
+)
+@pytest.mark.parametrize("device", ["cpu"])
+def test_attention_generate_data(device, arch_type):
+    """
+    Test that just generates data for the attention test.
+    """
 
-#     # Check that the model is instantiated correctly
-#     if arch_type == "Attention_type_1":
-#         assert model.attention.num_heads == 1
-#     elif arch_type == "Attention_type_2":
-#         assert model.attention.num_heads == 8
+    model: AttentionModule = AttentionModule.factory(arch_type=arch_type).to(device)
 
-#     model.save(
-#         f"checkpoint_diffusion_attention_{arch_type}.mdlus"
-#     )
+    # Check that the model is instantiated correctly
+    if arch_type == "Attention_type_1":
+        assert model.attention.num_heads == 1
+    elif arch_type == "Attention_type_2":
+        assert model.attention.num_heads == 8
 
-#     x = generate_data(device)
-#     out: torch.Tensor = model(x)
+    model.save(f"checkpoint_diffusion_attention_{arch_type}.mdlus")
 
-#     torch.save(
-#         out, f"output_diffusion_attention_{arch_type}.pth"
-#     )
+    x = generate_data(device)
+    out: torch.Tensor = model(x)
+
+    torch.save({"x": x, "out": out}, f"output_diffusion_attention_{arch_type}.pth")

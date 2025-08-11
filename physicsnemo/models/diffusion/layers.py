@@ -435,7 +435,7 @@ class GroupNorm(torch.nn.Module):
 
     Group Normalization (GN) divides the channels of the input tensor into groups and
     normalizes the features within each group independently. It does not require the
-    batch size as in Batch Normalization, making itsuitable for batch sizes of any size
+    batch size as in Batch Normalization, making it suitable for batch sizes of any size
     or even for batch-free scenarios.
 
     Parameters
