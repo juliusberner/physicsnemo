@@ -86,6 +86,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated the deforming plate example to use the Hybrid MeshGraphNet model.
 - &#9888;&#65039; **BC-breaking:** Refactored the `transolver` model to improve
   readability and performance, and extend to more use cases.
+- Diffusion models: improved lead time support for `SongUNetPosLtEmbd` and
+  `EDMLoss`. Lead-time embeddings can now be used with/without positional
+  embeddings.
 - Diffusion models: consolidate `ApexGroupNorm` and `GroupNorm` in
   `models/diffusion/layers.py` with a factory `get_group_norm` that can
   be used to instantiate either one of them. `get_group_norm` is now the
