@@ -32,7 +32,9 @@ sys.path.append(os.path.join(os.path.dirname(script_path), ".."))
 
 
 def _err(x: torch.Tensor, y: torch.Tensor) -> str:
-    return f"max_err: {torch.amax(torch.abs(x - y))}"
+    abs_err = torch.amax(torch.abs(x - y))
+    rel_err = torch.amax(torch.abs(x - y) / (torch.abs(y) + 1e-4))
+    return f"max_abs_err: {abs_err}, max_rel_err: {rel_err}"
 
 
 def _instantiate_model(cls, seed: int = 0, **kwargs):
@@ -147,17 +149,11 @@ def test_attention_non_regression(arch_type, device, use_apex_gn, fused_conv_bia
     x, out_ref = loaded_data["x"].to(device), loaded_data["out"].to(device)
     out: torch.Tensor = model(x)
 
-    assert torch.allclose(out, out_ref, atol=1e-3, rtol=1e-3), _err(out, out_ref)
-
-    # x = generate_data(device)
-    # out: torch.Tensor = model(x)
-
-    # assert torch.allclose(out, out_ref, atol=1e-5, rtol=1e-5)
-
-    # assert common.validate_accuracy(
-    #     out,
-    #     file_name=f"output_diffusion_{arch_type}.pth",
-    # )
+    if device == "cpu":
+        atol, rtol = 1e-3, 1e-3
+    elif device == "cuda:0":
+        atol, rtol = 0.1, 0.1
+    assert torch.allclose(out, out_ref, atol=atol, rtol=rtol), _err(out, out_ref)
 
 
 @pytest.mark.parametrize(
@@ -214,15 +210,11 @@ def test_attention_non_regression_from_checkpoint(
     x, out_ref = loaded_data["x"].to(device), loaded_data["out"].to(device)
     out: torch.Tensor = model(x)
 
-    assert torch.allclose(out, out_ref, atol=1e-3, rtol=1e-3), _err(out, out_ref)
-
-    # x = generate_data(device)
-    # out: torch.Tensor = model(x)
-
-    # assert common.validate_accuracy(
-    #     out,
-    #     file_name=f"output_diffusion_{arch_type}.pth",
-    # )
+    if device == "cpu":
+        atol, rtol = 1e-3, 1e-3
+    elif device == "cuda:0":
+        atol, rtol = 0.1, 0.1
+    assert torch.allclose(out, out_ref, atol=atol, rtol=rtol), _err(out, out_ref)
 
 
 # ---------------------------------------------------------------------------

@@ -55,16 +55,26 @@ class GroupNormModule(physicsnemo.Module):
     reproducible random parameters.
     """
 
-    def __init__(self, arch_type: str = "GN_type_1"):
+    def __init__(self, arch_type: str = "gn_type_1"):
         super().__init__()
         C_in = 64
-        if arch_type == "GN_type_1":
+        # Default parameters
+        if arch_type == "gn_type_1":
             self.group_norm = GroupNorm(num_channels=C_in)
-        elif arch_type == "GN_type_2":
+        # Custom parameters based on num_groups
+        elif arch_type == "gn_type_2":
             self.group_norm = GroupNorm(
                 num_channels=C_in,
                 num_groups=2,
                 min_channels_per_group=16,
+                eps=1e-3,
+            )
+        # Custom parameters based on min_channels_per_group
+        elif arch_type == "gn_type_3":
+            self.group_norm = GroupNorm(
+                num_channels=C_in,
+                num_groups=128,  # min_channels_per_group=2 should prevail
+                min_channels_per_group=2,
                 eps=1e-3,
             )
 
@@ -82,19 +92,30 @@ class GetGroupNormModule(physicsnemo.Module):
 
     _overridable_args: set[str] = {"use_apex_gn"}
 
-    def __init__(self, arch_type: str = "GN_type_1", use_apex_gn: bool = False):
+    def __init__(self, arch_type: str = "gn_type_1", use_apex_gn: bool = False):
         super().__init__()
         C_in = 64
-        if arch_type == "GN_type_1":
+        # Default parameters
+        if arch_type == "gn_type_1":
             self.group_norm = get_group_norm(
                 num_channels=C_in,
                 use_apex_gn=use_apex_gn,
             )
-        elif arch_type == "GN_type_2":
+        # Custom parameters based on num_groups
+        elif arch_type == "gn_type_2":
             self.group_norm = get_group_norm(
                 num_channels=C_in,
                 num_groups=2,
                 min_channels_per_group=16,
+                eps=1e-3,
+                use_apex_gn=use_apex_gn,
+            )
+        # Custom parameters based on num_groups
+        elif arch_type == "gn_type_3":
+            self.group_norm = get_group_norm(
+                num_channels=C_in,
+                num_groups=128,  # min_channels_per_group=2 should prevail
+                min_channels_per_group=2,
                 eps=1e-3,
                 use_apex_gn=use_apex_gn,
             )
@@ -116,7 +137,7 @@ def generate_data(device: str):
 
 
 @pytest.mark.parametrize("device", ["cuda:0", "cpu"])
-@pytest.mark.parametrize("arch_type", ["GN_type_1", "GN_type_2"])
+@pytest.mark.parametrize("arch_type", ["gn_type_1", "gn_type_2", "gn_type_3"])
 def test_group_norm_non_regression(device, arch_type):
     """
     Test that GroupNorm can be instantiated and compare the output with a
@@ -126,13 +147,18 @@ def test_group_norm_non_regression(device, arch_type):
     model: GroupNormModule = GroupNormModule.factory(arch_type=arch_type).to(device)
 
     # Check that the model is instantiated correctly
-    if arch_type == "GN_type_1":
+    if arch_type == "gn_type_1":
         assert model.group_norm.num_groups == 16
         assert model.group_norm.weight.shape == (64,)
         assert model.group_norm.bias.shape == (64,)
         assert model.group_norm.eps == 1e-5
-    elif arch_type == "GN_type_2":
+    elif arch_type == "gn_type_2":
         assert model.group_norm.num_groups == 2
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-3
+    elif arch_type == "gn_type_3":
+        assert model.group_norm.num_groups == 32
         assert model.group_norm.weight.shape == (64,)
         assert model.group_norm.bias.shape == (64,)
         assert model.group_norm.eps == 1e-3
@@ -156,7 +182,9 @@ def test_group_norm_non_regression(device, arch_type):
     ids=["gpu", "gpu-apexgn", "cpu"],
 )
 @pytest.mark.parametrize(
-    "arch_type", ["GN_type_1", "GN_type_2"], ids=["arch1", "arch2"]
+    "arch_type",
+    ["gn_type_1", "gn_type_2", "gn_type_3"],
+    ids=["arch1", "arch2", "arch3"],
 )
 def test_get_group_norm_non_regression(device, arch_type, use_apex_gn):
     """
@@ -170,13 +198,18 @@ def test_get_group_norm_non_regression(device, arch_type, use_apex_gn):
     ).to(device)
 
     # Check that the model is instantiated correctly
-    if arch_type == "GN_type_1":
+    if arch_type == "gn_type_1":
         assert model.group_norm.num_groups == 16
         assert model.group_norm.weight.shape == (64,)
         assert model.group_norm.bias.shape == (64,)
         assert model.group_norm.eps == 1e-5
-    elif arch_type == "GN_type_2":
+    elif arch_type == "gn_type_2":
         assert model.group_norm.num_groups == 2
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-3
+    elif arch_type == "gn_type_3":
+        assert model.group_norm.num_groups == 32
         assert model.group_norm.weight.shape == (64,)
         assert model.group_norm.bias.shape == (64,)
         assert model.group_norm.eps == 1e-3
@@ -203,7 +236,9 @@ def test_get_group_norm_non_regression(device, arch_type, use_apex_gn):
     ids=["gpu", "gpu-apexgn", "cpu"],
 )
 @pytest.mark.parametrize(
-    "arch_type", ["GN_type_1", "GN_type_2"], ids=["arch1", "arch2"]
+    "arch_type",
+    ["gn_type_1", "gn_type_2", "gn_type_3"],
+    ids=["arch1", "arch2", "arch3"],
 )
 def test_get_group_norm_non_regression_from_checkpoint(
     device, arch_type, use_apex_gn, chkpt_use_apex_gn
@@ -229,13 +264,18 @@ def test_get_group_norm_non_regression_from_checkpoint(
     ).to(device)
 
     # Check that the model is instantiated correctly
-    if arch_type == "GN_type_1":
+    if arch_type == "gn_type_1":
         assert model.group_norm.num_groups == 16
         assert model.group_norm.weight.shape == (64,)
         assert model.group_norm.bias.shape == (64,)
         assert model.group_norm.eps == 1e-5
-    elif arch_type == "GN_type_2":
+    elif arch_type == "gn_type_2":
         assert model.group_norm.num_groups == 2
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-3
+    elif arch_type == "gn_type_3":
+        assert model.group_norm.num_groups == 32
         assert model.group_norm.weight.shape == (64,)
         assert model.group_norm.bias.shape == (64,)
         assert model.group_norm.eps == 1e-3
@@ -259,7 +299,9 @@ def test_get_group_norm_non_regression_from_checkpoint(
     ids=["gpu", "gpu-apexgn", "cpu"],
 )
 @pytest.mark.parametrize(
-    "arch_type", ["GN_type_1", "GN_type_2"], ids=["arch1", "arch2"]
+    "arch_type",
+    ["gn_type_1", "gn_type_2", "gn_type_3"],
+    ids=["arch1", "arch2", "arch3"],
 )
 def test_get_group_norm_non_regression_from_group_norm_checkpoint(
     arch_type, device, use_apex_gn
@@ -283,13 +325,18 @@ def test_get_group_norm_non_regression_from_group_norm_checkpoint(
     ).to(device)
 
     # Check that the model is instantiated correctly
-    if arch_type == "GN_type_1":
+    if arch_type == "gn_type_1":
         assert model.group_norm.num_groups == 16
         assert model.group_norm.weight.shape == (64,)
         assert model.group_norm.bias.shape == (64,)
         assert model.group_norm.eps == 1e-5
-    elif arch_type == "GN_type_2":
+    elif arch_type == "gn_type_2":
         assert model.group_norm.num_groups == 2
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-3
+    elif arch_type == "gn_type_3":
+        assert model.group_norm.num_groups == 32
         assert model.group_norm.weight.shape == (64,)
         assert model.group_norm.bias.shape == (64,)
         assert model.group_norm.eps == 1e-3
@@ -301,3 +348,116 @@ def test_get_group_norm_non_regression_from_group_norm_checkpoint(
         out,
         file_name=f"output_diffusion_group_norm_{arch_type}-v1.0.1.pth",
     )
+
+
+# ---------------------------------------------------------------------------
+#   FOR CHECKPOINT AND DATA GENERATION
+# ---------------------------------------------------------------------------
+
+# # For checkpoint and data generation with v1.0.1
+# class GroupNormModule(physicsnemo.Module):
+#     """
+#     A wrapper around GroupNorm that has a factory method to create a model with
+#     reproducible random parameters.
+#     """
+
+#     def __init__(self, arch_type: str = "gn_type_1"):
+#         super().__init__()
+#         C_in = 64
+#         # Default parameters
+#         if arch_type == "gn_type_1":
+#             self.group_norm = GroupNorm(num_channels=C_in)
+#         # Custom parameters based on num_groups
+#         elif arch_type == "gn_type_2":
+#             self.group_norm = GroupNorm(
+#                 num_channels=C_in,
+#                 num_groups=2,
+#                 min_channels_per_group=16,
+#                 eps=1e-3,
+#             )
+#         # Custom parameters based on min_channels_per_group
+#         elif arch_type == "gn_type_3":
+#             self.group_norm = GroupNorm(
+#                 num_channels=C_in,
+#                 num_groups=128,  # min_channels_per_group=2 should prevail
+#                 min_channels_per_group=2,
+#                 eps=1e-3,
+#             )
+
+#     factory: classmethod = classmethod(_instantiate_model)
+
+#     def forward(self, x):
+#         return self.group_norm(x)
+
+
+@pytest.mark.parametrize("arch_type", ["gn_type_1", "gn_type_2", "gn_type_3"])
+def test_group_norm_generate_data(arch_type):
+    """
+    Function to generate data for the GroupNorm tests.
+    """
+
+    model: GroupNormModule = GroupNormModule.factory(arch_type=arch_type).to("cpu")
+
+    # Check that the model is instantiated correctly
+    if arch_type == "gn_type_1":
+        assert model.group_norm.num_groups == 16
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-5
+    elif arch_type == "gn_type_2":
+        assert model.group_norm.num_groups == 2
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-3
+    elif arch_type == "gn_type_3":
+        assert model.group_norm.num_groups == 32
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-3
+
+    x: torch.Tensor = generate_data("cpu")
+    out: torch.Tensor = model(x)
+
+    model.save(f"checkpoint_diffusion_group_norm_{arch_type}-v1.0.1.mdlus")
+    torch.save(out, f"output_diffusion_group_norm_{arch_type}-v1.0.1.pth")
+
+
+@pytest.mark.parametrize("use_apex_gn", [False])
+@pytest.mark.parametrize(
+    "arch_type",
+    ["gn_type_1", "gn_type_2", "gn_type_3"],
+    ids=["arch1", "arch2", "arch3"],
+)
+def test_get_group_norm_generate_data(arch_type, use_apex_gn):
+    """
+    Function to generate data for the get_group_norm tests.
+    """
+
+    model: GetGroupNormModule = GetGroupNormModule.factory(arch_type=arch_type).to(
+        "cpu"
+    )
+
+    # Check that the model is instantiated correctly
+    if arch_type == "gn_type_1":
+        assert model.group_norm.num_groups == 16
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-5
+    elif arch_type == "gn_type_2":
+        assert model.group_norm.num_groups == 2
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-3
+    elif arch_type == "gn_type_3":
+        assert model.group_norm.num_groups == 32
+        assert model.group_norm.weight.shape == (64,)
+        assert model.group_norm.bias.shape == (64,)
+        assert model.group_norm.eps == 1e-3
+
+    x: torch.Tensor = generate_data("cpu")
+    out: torch.Tensor = model(x)
+
+    model.save(
+        f"checkpoint_diffusion_get_group_norm_{arch_type}_use_apex_gn_{use_apex_gn}-v1.0.1.mdlus"
+    )
+    torch.save(out, f"output_diffusion_get_group_norm_{arch_type}-v1.0.1.pth")
