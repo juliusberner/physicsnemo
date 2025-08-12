@@ -24,6 +24,8 @@ import torch
 import physicsnemo
 from physicsnemo.models.diffusion.layers import get_group_norm
 
+# from physicsnemo.models.diffusion.layers import GroupNorm
+
 script_path: str = os.path.abspath(__file__)
 sys.path.append(os.path.join(os.path.dirname(script_path), ".."))
 
@@ -148,7 +150,7 @@ def test_group_norm_non_regression(device, arch_type, use_apex_gn):
 
     assert common.validate_accuracy(
         out,
-        file_name=f"output_diffusion_group_norm_{arch_type}-v1.0.1.pth",
+        file_name=f"output_diffusion_{arch_type}-v1.0.1.pth",
     )
 
 
@@ -181,7 +183,7 @@ def test_group_norm_non_regression_from_checkpoint(
     file_name: str = str(
         Path(__file__).parents[1].resolve()
         / Path("data")
-        / Path(f"checkpoint_diffusion_group_norm_{arch_type}-v1.0.1.mdlus")
+        / Path(f"checkpoint_diffusion_{arch_type}-v1.0.1.mdlus")
     )
 
     model: physicsnemo.Module = physicsnemo.Module.from_checkpoint(
@@ -211,77 +213,79 @@ def test_group_norm_non_regression_from_checkpoint(
 
     assert common.validate_accuracy(
         out,
-        file_name=f"output_diffusion_group_norm_{arch_type}-v1.0.1.pth",
+        file_name=f"output_diffusion_{arch_type}-v1.0.1.pth",
     )
 
+    # ---------------------------------------------------------------------------
+    #   FOR CHECKPOINT AND DATA GENERATION
+    # ---------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-#   FOR CHECKPOINT AND DATA GENERATION
-# ---------------------------------------------------------------------------
+    # For checkpoint and data generation with v1.0.1
+    # class GroupNormModule(physicsnemo.Module):
+    #     """
+    #     A wrapper around GroupNorm that has a factory method to create a model with
+    #     reproducible random parameters.
+    #     """
 
-# # For checkpoint and data generation with v1.0.1
-# class GroupNormModule(physicsnemo.Module):
-#     """
-#     A wrapper around GroupNorm that has a factory method to create a model with
-#     reproducible random parameters.
-#     """
+    #     def __init__(self, arch_type: str = "gn_type_1"):
+    #         super().__init__()
+    #         C_in = 64
+    #         # Default parameters
+    #         if arch_type == "gn_type_1":
+    #             self.group_norm = GroupNorm(num_channels=C_in)
+    #         # Custom parameters based on num_groups
+    #         elif arch_type == "gn_type_2":
+    #             self.group_norm = GroupNorm(
+    #                 num_channels=C_in,
+    #                 num_groups=2,
+    #                 min_channels_per_group=16,
+    #                 eps=1e-3,
+    #             )
+    #         # Custom parameters based on min_channels_per_group
+    #         elif arch_type == "gn_type_3":
+    #             self.group_norm = GroupNorm(
+    #                 num_channels=C_in,
+    #                 num_groups=128,  # min_channels_per_group=2 should prevail
+    #                 min_channels_per_group=2,
+    #                 eps=1e-3,
+    #             )
 
-#     def __init__(self, arch_type: str = "gn_type_1"):
-#         super().__init__()
-#         C_in = 64
-#         # Default parameters
-#         if arch_type == "gn_type_1":
-#             self.group_norm = GroupNorm(num_channels=C_in)
-#         # Custom parameters based on num_groups
-#         elif arch_type == "gn_type_2":
-#             self.group_norm = GroupNorm(
-#                 num_channels=C_in,
-#                 num_groups=2,
-#                 min_channels_per_group=16,
-#                 eps=1e-3,
-#             )
-#         # Custom parameters based on min_channels_per_group
-#         elif arch_type == "gn_type_3":
-#             self.group_norm = GroupNorm(
-#                 num_channels=C_in,
-#                 num_groups=128,  # min_channels_per_group=2 should prevail
-#                 min_channels_per_group=2,
-#                 eps=1e-3,
-#             )
+    #     factory: classmethod = classmethod(_instantiate_model)
 
-#     factory: classmethod = classmethod(_instantiate_model)
+    #     def forward(self, x):
+    #         return self.group_norm(x)
 
-#     def forward(self, x):
-#         return self.group_norm(x)
+    # @pytest.mark.parametrize(
+    #     "arch_type",
+    #     ["gn_type_1", "gn_type_2", "gn_type_3"],
+    #     ids=["arch1", "arch2", "arch3"],
+    # )
+    # def test_group_norm_generate_data(arch_type):
+    #     """
+    #     Function to generate data for the GroupNorm tests.
+    #     """
 
+    #     model: GroupNormModule = GroupNormModule.factory(arch_type=arch_type).to("cpu")
 
-# @pytest.mark.parametrize("arch_type", ["gn_type_1", "gn_type_2", "gn_type_3"])
-# def test_group_norm_generate_data(arch_type):
-#     """
-#     Function to generate data for the GroupNorm tests.
-#     """
+    #     # Check that the model is instantiated correctly
+    #     if arch_type == "gn_type_1":
+    #         assert model.group_norm.num_groups == 16
+    #         assert model.group_norm.weight.shape == (64,)
+    #         assert model.group_norm.bias.shape == (64,)
+    #         assert model.group_norm.eps == 1e-5
+    #     elif arch_type == "gn_type_2":
+    #         assert model.group_norm.num_groups == 2
+    #         assert model.group_norm.weight.shape == (64,)
+    #         assert model.group_norm.bias.shape == (64,)
+    #         assert model.group_norm.eps == 1e-3
+    #     elif arch_type == "gn_type_3":
+    #         assert model.group_norm.num_groups == 32
+    #         assert model.group_norm.weight.shape == (64,)
+    #         assert model.group_norm.bias.shape == (64,)
+    #         assert model.group_norm.eps == 1e-3
 
-#     model: GroupNormModule = GroupNormModule.factory(arch_type=arch_type).to("cpu")
+    #     x: torch.Tensor = generate_data("cpu")
+    #     out: torch.Tensor = model(x)
 
-#     # Check that the model is instantiated correctly
-#     if arch_type == "gn_type_1":
-#         assert model.group_norm.num_groups == 16
-#         assert model.group_norm.weight.shape == (64,)
-#         assert model.group_norm.bias.shape == (64,)
-#         assert model.group_norm.eps == 1e-5
-#     elif arch_type == "gn_type_2":
-#         assert model.group_norm.num_groups == 2
-#         assert model.group_norm.weight.shape == (64,)
-#         assert model.group_norm.bias.shape == (64,)
-#         assert model.group_norm.eps == 1e-3
-#     elif arch_type == "gn_type_3":
-#         assert model.group_norm.num_groups == 32
-#         assert model.group_norm.weight.shape == (64,)
-#         assert model.group_norm.bias.shape == (64,)
-#         assert model.group_norm.eps == 1e-3
-
-#     x: torch.Tensor = generate_data("cpu")
-#     out: torch.Tensor = model(x)
-
-#     model.save(f"checkpoint_diffusion_group_norm_{arch_type}-v1.0.1.mdlus")
-#     torch.save(out, f"output_diffusion_group_norm_{arch_type}-v1.0.1.pth")
+    model.save(f"checkpoint_diffusion_{arch_type}-v1.0.1.mdlus")
+    torch.save(out, f"output_diffusion_{arch_type}-v1.0.1.pth")
