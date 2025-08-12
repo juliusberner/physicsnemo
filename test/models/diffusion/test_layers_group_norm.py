@@ -287,5 +287,5 @@ def test_group_norm_non_regression_from_checkpoint(
     #     x: torch.Tensor = generate_data("cpu")
     #     out: torch.Tensor = model(x)
 
-    model.save(f"checkpoint_diffusion_{arch_type}-v1.0.1.mdlus")
-    torch.save(out, f"output_diffusion_{arch_type}-v1.0.1.pth")
+    # model.save(f"checkpoint_diffusion_{arch_type}-v1.0.1.mdlus")
+    # torch.save(out, f"output_diffusion_{arch_type}-v1.0.1.pth")
