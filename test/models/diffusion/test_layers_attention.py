@@ -92,8 +92,7 @@ class AttentionModule(physicsnemo.Module):
     factory: classmethod = classmethod(_instantiate_model)
 
     def forward(self, x):
-        with torch.nn.attention.sdpa_kernel(torch.nn.attention.SDPBackend.MATH):
-            return self.attention(x)
+        return self.attention(x)
 
 
 def generate_data(device: str) -> torch.Tensor:
