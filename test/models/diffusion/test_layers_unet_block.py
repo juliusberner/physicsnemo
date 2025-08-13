@@ -181,7 +181,7 @@ def test_unet_block_non_regression(arch_type, device, use_apex_gn, fused_conv_bi
     file_name: str = str(
         Path(__file__).parents[1].resolve()
         / Path("data")
-        / Path(f"output_diffusion_{arch_type}.pth")
+        / Path(f"output_diffusion_{arch_type}-v1.0.1.pth")
     )
     loaded_data: Dict[str, torch.Tensor] = torch.load(file_name)
     x, emb = loaded_data["x"].to(device), loaded_data["emb"].to(device)
@@ -189,11 +189,14 @@ def test_unet_block_non_regression(arch_type, device, use_apex_gn, fused_conv_bi
     out: torch.Tensor = model(x, emb)
 
     # NOTE: this test needs very large tolerances to pass (seems hardware
-    # dependent)
-    if device == "cpu":
-        atol, rtol = 0.005, 1e-3
-    elif device == "cuda:0":
-        atol, rtol = 5.0, 1e-3
+    # dependent) because of the attention mechanism.
+    if arch_type in ["unet_block_type_2", "unet_block_type_3"]:
+        if device == "cpu":
+            atol, rtol = 0.005, 1e-3
+        elif device == "cuda:0":
+            atol, rtol = 5.0, 1e-3
+    else:
+        atol, rtol = 1e-3, 1e-3
     assert torch.allclose(out, out_ref, atol=atol, rtol=rtol), _err(out, out_ref)
 
 
@@ -265,17 +268,22 @@ def test_unet_block_non_regression_from_checkpoint(
     file_name: str = str(
         Path(__file__).parents[1].resolve()
         / Path("data")
-        / Path(f"output_diffusion_{arch_type}.pth")
+        / Path(f"output_diffusion_{arch_type}-v1.0.1.pth")
     )
     loaded_data: Dict[str, torch.Tensor] = torch.load(file_name)
     x, emb = loaded_data["x"].to(device), loaded_data["emb"].to(device)
     out_ref = loaded_data["out"].to(device)
     out: torch.Tensor = model(x, emb)
 
-    if device == "cpu":
-        atol, rtol = 0.005, 1e-3
-    elif device == "cuda:0":
-        atol, rtol = 5.0, 1e-3
+    # NOTE: this test needs very large tolerances to pass (seems hardware
+    # dependent) because of the attention mechanism.
+    if arch_type in ["unet_block_type_2", "unet_block_type_3"]:
+        if device == "cpu":
+            atol, rtol = 0.005, 1e-3
+        elif device == "cuda:0":
+            atol, rtol = 5.0, 1e-3
+    else:
+        atol, rtol = 1e-3, 1e-3
     assert torch.allclose(out, out_ref, atol=atol, rtol=rtol), _err(out, out_ref)
 
 
@@ -320,6 +328,7 @@ def test_unet_block_non_regression_from_checkpoint(
 #                 emb_channels=Ne,
 #                 attention=True,
 #                 channels_per_head=C_out,
+#                 skip_scale=0.5,
 #             )
 
 #     factory: classmethod = classmethod(_instantiate_model)
